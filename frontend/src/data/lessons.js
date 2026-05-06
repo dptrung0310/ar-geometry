@@ -1,0 +1,68 @@
+const LESSONS = [
+  {
+    icon: "📐",
+    title: "Định nghĩa hình không gian",
+    desc: "Phân biệt hình phẳng và hình không gian. Các yếu tố cơ bản: đỉnh, cạnh, mặt.",
+    time: "15 phút",
+    level: "Cơ bản",
+    cat: "poly",
+  },
+  {
+    icon: "🔷",
+    title: "Họ hình đa diện",
+    desc: "Khối lập phương, lăng trụ, hình chóp — định nghĩa và tính chất đặc trưng.",
+    time: "25 phút",
+    level: "Cơ bản",
+    cat: "poly",
+  },
+  {
+    icon: "🌐",
+    title: "Hình tròn xoay",
+    desc: "Hình cầu, hình trụ, hình nón — nguồn gốc từ phép xoay hình phẳng.",
+    time: "20 phút",
+    level: "Cơ bản",
+    cat: "round",
+  },
+  {
+    icon: "📏",
+    title: "Công thức thể tích",
+    desc: "Tất cả công thức tính thể tích quan trọng cần nhớ với minh họa trực quan.",
+    time: "30 phút",
+    level: "Trung bình",
+    cat: "formula",
+  },
+  {
+    icon: "📐",
+    title: "Diện tích toàn phần và xung quanh",
+    desc: "Phân biệt diện tích toàn phần và xung quanh, cách tính từng loại hình.",
+    time: "30 phút",
+    level: "Trung bình",
+    cat: "formula",
+  },
+  {
+    icon: "🔺",
+    title: "Hình chóp và tính chất",
+    desc: "Các loại hình chóp, cách tính diện tích đáy, mặt bên và thể tích.",
+    time: "25 phút",
+    level: "Trung bình",
+    cat: "poly",
+  },
+  {
+    icon: "🌀",
+    title: "Hình xuyến và mặt phức tạp",
+    desc: "Khám phá các mặt tròn xoay nâng cao như xuyến, ellipsoid.",
+    time: "20 phút",
+    level: "Nâng cao",
+    cat: "round",
+  },
+  {
+    icon: "✏️",
+    title: "Bài tập tổng hợp",
+    desc: "Các bài toán kết hợp nhiều hình, cắt ghép, tính toán thực tế.",
+    time: "45 phút",
+    level: "Nâng cao",
+    cat: "formula",
+  },
+];
+
+export default LESSONS;
