@@ -31,7 +31,7 @@ export default function HomePage() {
             Học hình học không gian qua mô hình 3D tương tác và công nghệ thực
             tế tăng cường. Xoay, phóng to, khám phá từng hình theo cách của bạn.
           </p>
-          <div style={styles.heroBtns}>
+          <div style={styles.heroBtns} className="hero-btns">
             <Button onClick={() => navigate("/explore")}>🔷 Khám phá 3D</Button>
             <Button variant="secondary" onClick={() => navigate("/learn")}>
               📚 Học ngay
@@ -40,7 +40,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section style={styles.statsSection}>
+      <section style={styles.statsSection} className="stats-grid">
         {STATS.map((s) => (
           <div key={s.label} style={styles.statCard}>
             <div style={{ ...styles.statVal, color: s.color }}>{s.val}</div>
@@ -55,7 +55,7 @@ export default function HomePage() {
           title="Các hình 3D nổi bật"
           desc="Click vào bất kỳ hình nào để xem chi tiết trong trình xem 3D tương tác."
         />
-        <div style={styles.shapeGrid}>
+        <div style={styles.shapeGrid} className="shape-grid">
           {SHAPES.map((shape) => (
             <ShapeCard key={shape.id} shape={shape} />
           ))}

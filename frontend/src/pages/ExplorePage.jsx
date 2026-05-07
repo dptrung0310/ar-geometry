@@ -10,7 +10,7 @@ export default function ExplorePage() {
         title="Trình xem hình học 3D"
         desc="Kéo để xoay · Chọn hình từ danh sách · Tùy chỉnh hiển thị theo ý muốn"
       />
-      <div style={styles.layout}>
+      <div style={styles.layout} className="explore-layout">
         <div style={styles.viewerCol}>
           <ThreeViewer />
         </div>

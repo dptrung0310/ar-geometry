@@ -50,7 +50,7 @@ export default function ARPage() {
         </div>
       </div>
 
-      <div style={styles.stepsGrid}>
+      <div style={styles.stepsGrid} className="steps-grid">
         {AR_STEPS.map((step) => (
           <div key={step.num} style={styles.stepCard}>
             <div style={styles.stepNum}>{step.num}</div>

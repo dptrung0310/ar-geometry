@@ -33,9 +33,13 @@ export default function AboutPage() {
 
       <section style={styles.section}>
         <div style={styles.sectionTitle}>Công nghệ sử dụng</div>
-        <div style={styles.techGrid}>
+        <div style={styles.techGrid} className="tech-grid">
           {TECH.map((t) => (
-            <div key={t.name} style={styles.techCard}>
+            <div
+              key={t.name}
+              style={styles.techCard}
+              className="tech-card-hover"
+            >
               <div
                 style={{ ...styles.techIcon, background: t.bg, color: t.color }}
               >
@@ -56,7 +60,11 @@ export default function AboutPage() {
           {ROADMAP.map((item, i) => {
             const s = STATUS_STYLE[item.status];
             return (
-              <div key={i} style={styles.roadmapItem}>
+              <div
+                key={i}
+                style={styles.roadmapItem}
+                className="roadmap-item-hover"
+              >
                 <div
                   style={{
                     ...styles.roadmapDot,
