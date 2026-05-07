@@ -4,53 +4,71 @@ import { makeGeo, makeMaterial } from "../utils/geometry";
 
 export default function useMiniCanvas(containerRef, shape) {
   const rafRef = useRef(null);
+  const cleanupRef = useRef(null);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container || !shape) return;
 
-    // Setup
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-    camera.position.set(0, 0, 3.5);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          observer.disconnect();
+          startRenderer();
+        }
+      },
+      { threshold: 0.1 },
+    );
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 0);
-    container.appendChild(renderer.domElement);
+    observer.observe(container);
 
-    // Lighting
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-    dir.position.set(3, 3, 3);
-    scene.add(dir);
+    function startRenderer() {
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+      camera.position.set(0, 0, 3.5);
 
-    // Mesh
-    const geo = makeGeo(shape.geo);
-    const mat = makeMaterial(shape.color);
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.rotation.x = 0.4;
-    scene.add(mesh);
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+      });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setClearColor(0x000000, 0);
+      container.appendChild(renderer.domElement);
 
-    // Animate
-    const animate = () => {
-      rafRef.current = requestAnimationFrame(animate);
-      mesh.rotation.y += 0.012;
-      renderer.render(scene, camera);
-    };
-    animate();
+      scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+      const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+      dir.position.set(3, 3, 3);
+      scene.add(dir);
+
+      const geo = makeGeo(shape.geo);
+      const mat = makeMaterial(shape.color);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.x = 0.4;
+      scene.add(mesh);
+
+      const animate = () => {
+        rafRef.current = requestAnimationFrame(animate);
+        mesh.rotation.y += 0.012;
+        renderer.render(scene, camera);
+      };
+      animate();
+
+      // Lưu cleanup để dùng khi unmount
+      cleanupRef.current = () => {
+        cancelAnimationFrame(rafRef.current);
+        geo.dispose();
+        mat.dispose();
+        renderer.dispose();
+        if (container.contains(renderer.domElement)) {
+          container.removeChild(renderer.domElement);
+        }
+      };
+    }
 
     return () => {
-      cancelAnimationFrame(rafRef.current);
-      geo.dispose();
-      mat.dispose();
-      renderer.dispose();
-      if (container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
-      }
+      observer.disconnect();
+      cleanupRef.current?.();
     };
   }, [shape]);
-
-  return null;
 }

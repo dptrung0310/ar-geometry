@@ -14,16 +14,33 @@ function PageLoader() {
     <div
       style={{
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         height: "100vh",
-        color: "var(--text3)",
-        fontFamily: "'Space Mono', monospace",
-        fontSize: "13px",
-        letterSpacing: "2px",
+        gap: "16px",
       }}
     >
-      loading...
+      <div
+        style={{
+          width: "32px",
+          height: "32px",
+          border: "2px solid var(--border2)",
+          borderTop: "2px solid var(--cyan)",
+          borderRadius: "50%",
+          animation: "spin .8s linear infinite",
+        }}
+      />
+      <span
+        style={{
+          fontFamily: "'Space Mono', monospace",
+          fontSize: "11px",
+          color: "var(--text3)",
+          letterSpacing: "2px",
+        }}
+      >
+        loading...
+      </span>
     </div>
   );
 }
