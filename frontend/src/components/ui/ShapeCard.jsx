@@ -14,7 +14,7 @@ export default function ShapeCard({ shape }) {
   const hexColor = "#" + shape.color.toString(16).padStart(6, "0");
 
   return (
-    <div onClick={handleClick} style={styles.card}>
+    <div onClick={handleClick} style={styles.card} className="shape-card-hover">
       <MiniCanvas shape={shape} height="130px" />
 
       <div style={styles.info}>

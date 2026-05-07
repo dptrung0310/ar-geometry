@@ -8,7 +8,7 @@ export default function LessonCard({ lesson }) {
   const level = LEVEL_COLOR[lesson.level] || LEVEL_COLOR["Cơ bản"];
 
   return (
-    <div style={styles.card}>
+    <div style={styles.card} className="lesson-card-hover">
       <div style={styles.icon}>{lesson.icon}</div>
       <div style={styles.body}>
         <div style={styles.titleRow}>
