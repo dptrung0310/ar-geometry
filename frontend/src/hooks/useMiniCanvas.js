@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { makeGeo, makeMaterial } from "@/utils/geometry";
+import { makeGeo, makeMaterial } from "../utils/geometry";
 
 export default function useMiniCanvas(containerRef, shape) {
   const rafRef = useRef(null);

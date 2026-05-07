@@ -3,7 +3,7 @@ import { Suspense, lazy } from "react";
 import Navbar from "./components/layout/Navbar";
 import PageWrapper from "./components/layout/PageWrapper";
 
-const HomePage = lazy(() => import("./pages/HomePages"));
+const HomePage = lazy(() => import("./pages/HomePage"));
 const LearnPage = lazy(() => import("./pages/LearnPage"));
 const ExplorePage = lazy(() => import("./pages/ExplorePage"));
 const ARPage = lazy(() => import("./pages/ARPage"));
