@@ -1,214 +1,326 @@
-import SectionHeader from "../components/ui/SectionHeader";
-import Button from "../components/ui/Button";
+import { useRef, useEffect } from "react";
 
-const AR_STEPS = [
-  {
-    num: "01",
-    title: "In marker",
-    desc: "Tải và in tờ marker AR từ thư viện của chúng tôi.",
-  },
-  {
-    num: "02",
-    title: "Mở camera",
-    desc: 'Nhấn "Bắt đầu AR" để cho phép truy cập camera.',
-  },
-  {
-    num: "03",
-    title: "Hướng vào marker",
-    desc: "Đưa camera hướng vào tờ marker đã in.",
-  },
-  {
-    num: "04",
-    title: "Khám phá 3D",
-    desc: "Hình 3D xuất hiện ngay trên tờ giấy, xoay để xem.",
-  },
-];
+import SectionHeader from "../components/ui/SectionHeader";
+
+import { ARControls } from "../components/ar/ARControls";
+
+import useViewerStore from "../store/useViewerStore";
+
+import { useAR } from "../hooks/useAR";
 
 export default function ARPage() {
+  const canvasRef = useRef(null);
+
+  const { currentShape, size, opacity, wireframe, autoRotate } =
+    useViewerStore();
+
+  const { cameraActive, toggleCamera, error, videoRef } = useAR(
+    canvasRef,
+    currentShape,
+    {
+      size,
+      opacity,
+      wireframe,
+      autoRotate,
+    },
+  );
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      canvasRef.current.focus();
+    }
+  }, []);
+
   return (
     <div style={styles.page}>
       <SectionHeader
-        eyebrow="thực tế tăng cường"
-        title="Chế độ AR"
-        desc="Trải nghiệm hình học 3D ngay trên bàn học của bạn với công nghệ AR."
+        eyebrow="augmented reality"
+        title="Trình xem AR tương tác bằng cử chỉ tay"
+        desc="Điều khiển hình khối 3D bằng hand tracking realtime · Move · Rotate"
       />
 
-      <div style={styles.previewBox}>
-        <div style={styles.scanLines} />
+      <div style={styles.layout} className="ar-layout">
+        {/* VIEWER */}
+        <div style={styles.viewerCard}>
+          <div style={styles.viewerHeader}>
+            <div>
+              <div style={styles.shapeName}>{currentShape?.name}</div>
 
-        {["topLeft", "topRight", "bottomLeft", "bottomRight"].map((pos) => (
-          <div key={pos} style={{ ...styles.corner, ...cornerPos[pos] }} />
-        ))}
+              <div style={styles.shapeInfo}>AR Hand Tracking Active</div>
+            </div>
 
-        <div style={styles.previewCenter}>
-          <div style={styles.arIcon}>◈</div>
-          <div style={styles.arLabel}>AR Preview</div>
-          <div style={styles.arSub}>Camera feed sẽ hiển thị ở đây</div>
-          <Button variant="purple" style={{ marginTop: "16px" }}>
-            ◎ Bắt đầu AR
-          </Button>
-        </div>
-      </div>
+            <div style={styles.statusWrap}>
+              <div
+                style={{
+                  ...styles.statusDot,
+                  background: cameraActive ? "#10ffa0" : "#666",
+                }}
+              />
 
-      <div style={styles.stepsGrid} className="steps-grid">
-        {AR_STEPS.map((step) => (
-          <div key={step.num} style={styles.stepCard}>
-            <div style={styles.stepNum}>{step.num}</div>
-            <div style={styles.stepTitle}>{step.title}</div>
-            <div style={styles.stepDesc}>{step.desc}</div>
+              <span style={styles.statusText}>
+                {cameraActive ? "Camera Active" : "Camera Off"}
+              </span>
+            </div>
           </div>
-        ))}
-      </div>
 
-      <div style={styles.notice}>
-        <span style={styles.noticeDot} />
-        <span>
-          <strong style={{ color: "var(--purple)" }}>Beta:</strong> Tính năng AR
-          đang trong quá trình phát triển. MindAR.js sẽ được tích hợp trong
-          phiên bản tiếp theo.
-        </span>
+          <div style={styles.canvasWrapper}>
+            {/* CAMERA */}
+            <video
+              ref={videoRef}
+              className="camera-video"
+              autoPlay
+              muted
+              playsInline
+              style={styles.video}
+            />
+
+            {/* THREE */}
+            <canvas ref={canvasRef} style={styles.canvas} />
+
+            {/* OVERLAY */}
+            {!cameraActive && (
+              <div style={styles.overlay}>
+                <div style={styles.overlayBox}>
+                  <div style={styles.overlayIcon}>🎯</div>
+
+                  <h2 style={styles.overlayTitle}>AR Geometry Viewer</h2>
+
+                  <p style={styles.overlayDesc}>
+                    Bật camera để bắt đầu trải nghiệm AR tương tác bằng cử chỉ
+                    tay
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* CONTROLS */}
+        <div style={styles.controlsCol}>
+          <div style={styles.controlsCard}>
+            <div style={styles.panelTitle}>Điều khiển AR</div>
+
+            <ARControls
+              onToggleCamera={toggleCamera}
+              cameraActive={cameraActive}
+              error={error}
+            />
+          </div>
+
+          <div style={styles.helpCard}>
+            <div style={styles.panelTitle}>Hand Gestures</div>
+
+            <div style={styles.gestureList}>
+              <GestureRow emoji="🖐" title="Open Palm" desc="Xoay object" />
+
+              <GestureRow emoji="🤏" title="Pinch" desc="Di chuyển object" />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-const cornerPos = {
-  topLeft: {
-    top: 12,
-    left: 12,
-    borderTop: "2px solid var(--purple)",
-    borderLeft: "2px solid var(--purple)",
-    borderRight: "none",
-    borderBottom: "none",
-  },
-  topRight: {
-    top: 12,
-    right: 12,
-    borderTop: "2px solid var(--purple)",
-    borderRight: "2px solid var(--purple)",
-    borderLeft: "none",
-    borderBottom: "none",
-  },
-  bottomLeft: {
-    bottom: 12,
-    left: 12,
-    borderBottom: "2px solid var(--purple)",
-    borderLeft: "2px solid var(--purple)",
-    borderRight: "none",
-    borderTop: "none",
-  },
-  bottomRight: {
-    bottom: 12,
-    right: 12,
-    borderBottom: "2px solid var(--purple)",
-    borderRight: "2px solid var(--purple)",
-    borderLeft: "none",
-    borderTop: "none",
-  },
-};
+function GestureRow({ emoji, title, desc }) {
+  return (
+    <div style={styles.gestureRow}>
+      <div style={styles.gestureEmoji}>{emoji}</div>
+
+      <div>
+        <div style={styles.gestureTitle}>{title}</div>
+
+        <div style={styles.gestureDesc}>{desc}</div>
+      </div>
+    </div>
+  );
+}
 
 const styles = {
-  page: { maxWidth: "860px", margin: "0 auto", padding: "40px 24px 60px" },
+  page: {
+    maxWidth: "1400px",
+    margin: "0 auto",
+    padding: "40px 24px 60px",
+  },
 
-  previewBox: {
-    position: "relative",
-    height: "320px",
+  layout: {
+    display: "grid",
+    gridTemplateColumns: "1fr 320px",
+    gap: "20px",
+    alignItems: "stretch",
+  },
+
+  viewerCard: {
     background: "var(--card)",
-    border: "1px solid rgba(168,85,247,.3)",
-    borderRadius: "16px",
+    border: "1px solid var(--border)",
+    borderRadius: "18px",
     overflow: "hidden",
-    marginBottom: "32px",
+    display: "flex",
+    flexDirection: "column",
+    minHeight: "720px",
+  },
+
+  viewerHeader: {
+    padding: "18px 22px",
+    borderBottom: "1px solid var(--border)",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  shapeName: {
+    fontSize: "16px",
+    fontWeight: 600,
+    color: "var(--text)",
+  },
+
+  shapeInfo: {
+    fontSize: "11px",
+    marginTop: "4px",
+    color: "var(--text3)",
+    fontFamily: "'Space Mono', monospace",
+  },
+
+  statusWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+
+  statusDot: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "50%",
+    boxShadow: "0 0 10px currentColor",
+  },
+
+  statusText: {
+    fontSize: "11px",
+    color: "var(--text3)",
+    fontFamily: "'Space Mono', monospace",
+  },
+
+  canvasWrapper: {
+    position: "relative",
+    flex: 1,
+    overflow: "hidden",
+    background: "#050505",
+  },
+
+  video: {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    zIndex: 0,
+  },
+
+  canvas: {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    zIndex: 1,
+    background: "transparent",
+  },
+
+  overlay: {
+    position: "absolute",
+    inset: 0,
+    zIndex: 2,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    backdropFilter: "blur(8px)",
+    background: "rgba(0,0,0,.45)",
   },
-  scanLines: {
-    position: "absolute",
-    inset: 0,
-    background:
-      "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(168,85,247,.03) 3px, rgba(168,85,247,.03) 4px)",
-    pointerEvents: "none",
-  },
-  corner: {
-    position: "absolute",
-    width: "20px",
-    height: "20px",
-  },
-  previewCenter: {
-    position: "relative",
-    zIndex: 1,
+
+  overlayBox: {
     textAlign: "center",
+    padding: "32px",
+  },
+
+  overlayIcon: {
+    fontSize: "52px",
+    marginBottom: "18px",
+  },
+
+  overlayTitle: {
+    fontSize: "30px",
+    color: "var(--text)",
+    marginBottom: "12px",
+  },
+
+  overlayDesc: {
+    color: "var(--text2)",
+    fontSize: "15px",
+    lineHeight: 1.7,
+    maxWidth: "420px",
+  },
+
+  controlsCol: {
     display: "flex",
     flexDirection: "column",
-    alignItems: "center",
-    gap: "6px",
-  },
-  arIcon: {
-    fontSize: "48px",
-    color: "var(--purple)",
-    animation: "pulse 2.5s infinite",
-  },
-  arLabel: {
-    fontFamily: "'Space Mono', monospace",
-    color: "var(--purple)",
-    fontSize: "14px",
-    marginTop: "6px",
-  },
-  arSub: {
-    fontSize: "12px",
-    color: "var(--text3)",
+    gap: "20px",
   },
 
-  stepsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-    gap: "14px",
-    marginBottom: "24px",
-  },
-  stepCard: {
+  controlsCard: {
     background: "var(--card)",
     border: "1px solid var(--border)",
-    borderRadius: "12px",
-    padding: "18px",
-  },
-  stepNum: {
-    fontFamily: "'Space Mono', monospace",
-    fontSize: "22px",
-    color: "var(--purple)",
-    fontWeight: 700,
-    marginBottom: "8px",
-  },
-  stepTitle: {
-    fontSize: "14px",
-    fontWeight: 500,
-    color: "var(--text)",
-    marginBottom: "6px",
-  },
-  stepDesc: {
-    fontSize: "12px",
-    color: "var(--text2)",
-    lineHeight: 1.6,
+    borderRadius: "18px",
+    overflow: "hidden",
+    padding: "20px",
   },
 
-  notice: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "10px",
-    background: "rgba(168,85,247,.08)",
-    border: "1px solid rgba(168,85,247,.25)",
-    borderRadius: "10px",
-    padding: "14px 18px",
-    fontSize: "13px",
-    color: "var(--text2)",
-    lineHeight: 1.6,
+  helpCard: {
+    background: "var(--card)",
+    border: "1px solid var(--border)",
+    borderRadius: "18px",
+    overflow: "hidden",
+    padding: "20px",
   },
-  noticeDot: {
-    width: "8px",
-    height: "8px",
-    borderRadius: "50%",
-    background: "var(--purple)",
-    flexShrink: 0,
-    marginTop: "4px",
-    animation: "pulse 2s infinite",
+
+  panelTitle: {
+    fontSize: "11px",
+    color: "var(--text3)",
+    textTransform: "uppercase",
+    letterSpacing: "1px",
+    marginBottom: "18px",
+    fontFamily: "'Space Mono', monospace",
+  },
+
+  gestureList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "14px",
+  },
+
+  gestureRow: {
+    display: "flex",
+    gap: "12px",
+    alignItems: "center",
+    background: "var(--bg3)",
+    border: "1px solid var(--border)",
+    borderRadius: "12px",
+    padding: "12px",
+  },
+
+  gestureEmoji: {
+    fontSize: "24px",
+    width: "42px",
+    textAlign: "center",
+  },
+
+  gestureTitle: {
+    color: "var(--text)",
+    fontSize: "13px",
+    fontWeight: 500,
+  },
+
+  gestureDesc: {
+    color: "var(--text3)",
+    fontSize: "12px",
+    marginTop: "3px",
   },
 };

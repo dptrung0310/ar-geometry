@@ -66,7 +66,7 @@ export default function HomePage() {
 }
 
 const styles = {
-  page: { maxWidth: "1100px", margin: "0 auto", padding: "0 24px 60px" },
+  page: { maxWidth: "1400px", margin: "0 auto", padding: "0 24px 60px" },
 
   hero: {
     position: "relative",

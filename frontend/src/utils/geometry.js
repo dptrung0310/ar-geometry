@@ -9,7 +9,7 @@ export function makeGeo(geoType) {
     case "cylinder":
       return new THREE.CylinderGeometry(0.7, 0.7, 1.4, 32);
     case "cone":
-      return new THREE.ConeGeometry(0.8, 15, 32);
+      return new THREE.ConeGeometry(0.8, 1.5, 32);
     case "pyramid":
       return new THREE.ConeGeometry(1.0, 1.5, 4);
     case "torus":

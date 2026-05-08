@@ -23,7 +23,7 @@ export default function ExplorePage() {
 }
 
 const styles = {
-  page: { maxWidth: "1100px", margin: "0 auto", padding: "40px 24px 60px" },
+  page: { maxWidth: "1400px", margin: "0 auto", padding: "40px 24px 60px" },
   layout: {
     display: "grid",
     gridTemplateColumns: "1fr 320px",

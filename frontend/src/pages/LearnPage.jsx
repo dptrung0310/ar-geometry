@@ -65,7 +65,7 @@ export default function LearnPage() {
 }
 
 const styles = {
-  page: { maxWidth: "860px", margin: "0 auto", padding: "40px 24px 60px" },
+  page: { maxWidth: "1400px", margin: "0 auto", padding: "40px 24px 60px" },
   tabs: { display: "flex", gap: "8px", marginBottom: "28px", flexWrap: "wrap" },
   tab: {
     display: "flex",
