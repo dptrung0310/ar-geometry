@@ -2,8 +2,9 @@ import { useRef, useState } from "react";
 import SHAPES from "../../data/shapes";
 import MOCK_GEOMETRY_PROBLEMS from "../../data/mockGeometryOutput";
 import useViewerStore from "../../store/useViewerStore";
+import { analyzeImageProblem } from "../../api/geometryApi";
 
-export function ARControls({ onToggleCamera, cameraActive, error }) {
+export function ARControls({ onToggleCamera, cameraActive, error: cameraError }) {
   const {
     currentShape,
     setShape,
@@ -27,28 +28,34 @@ export function ARControls({ onToggleCamera, cameraActive, error }) {
   const [activeTab, setActiveTab] = useState("preset"); // 'preset' | 'problem'
   const [selectedProblemId, setSelectedProblemId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState(null);
 
   const handleLoadProblem = (id) => {
     if (!id) return;
     setSelectedProblemId(id);
+    setApiError(null);
     const found = MOCK_GEOMETRY_PROBLEMS.find((p) => p.id === id);
     if (found) setGeometryData(found);
   };
 
-  const handleUploadImage = (e) => {
+  const handleUploadImage = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
     setIsLoading(true);
-    // Stub: giả lập backend xử lý 1.2 giây, sau đó trả mock data ngẫu nhiên
-    setTimeout(() => {
-      const found =
-        MOCK_GEOMETRY_PROBLEMS[
-          Math.floor(Math.random() * MOCK_GEOMETRY_PROBLEMS.length)
-        ];
-      setGeometryData(found);
+    setApiError(null);
+    
+    try {
+      const data = await analyzeImageProblem(file);
+      setGeometryData(data);
+    } catch (err) {
+      console.error(err);
+      setApiError(err.message || "Lỗi không xác định khi kết nối máy chủ AI");
+    } finally {
       setIsLoading(false);
-    }, 1200);
+    }
   };
+
 
   return (
     <div className="ar-controls">
@@ -60,7 +67,7 @@ export function ARControls({ onToggleCamera, cameraActive, error }) {
         >
           <span>{cameraActive ? "🟢 Camera Active" : "📷 Bật Camera"}</span>
         </button>
-        {error && <div className="error-message">{error}</div>}
+        {cameraError && <div className="error-message">{cameraError}</div>}
       </div>
 
       {/* ── TABS ────────────────────────────────────────────────── */}
@@ -136,6 +143,7 @@ export function ARControls({ onToggleCamera, cameraActive, error }) {
           <button
             className="upload-btn"
             onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
           >
             <span>📷 Upload ảnh đề bài</span>
             <span className="upload-sub">OCR → LLM → Geometry Engine</span>
@@ -153,6 +161,13 @@ export function ARControls({ onToggleCamera, cameraActive, error }) {
             <div className="loading-bar">
               <div className="loading-inner" />
               <span>Đang phân tích ảnh...</span>
+            </div>
+          )}
+
+          {/* Error display */}
+          {apiError && (
+            <div className="error-message">
+              ⚠️ {apiError}
             </div>
           )}
 
