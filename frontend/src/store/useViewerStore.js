@@ -29,6 +29,11 @@ const useViewerStore = create((set) => ({
       opacity: 0.35, // Custom mesh dùng opacity thấp hơn để thấy cạnh
     }),
 
+  isLoading: false,
+  apiError: null,
+  setIsLoading: (isLoading) => set({ isLoading }),
+  setApiError: (apiError) => set({ apiError }),
+
   // ── Shared settings ───────────────────────────────────────────
   wireframe: false,
   autoRotate: true,

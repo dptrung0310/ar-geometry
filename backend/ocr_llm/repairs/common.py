@@ -29,6 +29,10 @@ def _repair_geometry_payload(
     if not isinstance(constraints, list):
         return payload
 
+    _normalize_apex_constraints(constraints)
+    _repair_list_based_midpoints_and_centroids(constraints, problem_text)
+    _repair_text_based_midpoints_and_centroids(constraints, problem_text)
+    _remove_shape_constraints_on_derived_points(constraints)
     _repair_centroid_constraints(constraints)
     _repair_ratio_point_constraints(constraints)
     _repair_intersection_constraints(constraints, problem_text)
@@ -76,6 +80,7 @@ def _repair_geometry_payload(
                 if not c.get("points"):
                     c["points"] = [*base, *top]
 
+    _add_coplanar_constraints_for_sub_shapes(constraints, problem_text)
     payload["constraints"] = _sort_constraints(constraints)
     return payload
 
@@ -110,7 +115,11 @@ def _extract_prism(problem_text: str) -> tuple[list[str], list[str]] | None:
 def _normalize_numeric_fields(payload: dict[str, Any]) -> None:
     for field in ("side_length",):
         if field in payload:
-            payload[field] = _coerce_numeric_value(payload[field])
+            val = _coerce_numeric_value(payload[field])
+            if isinstance(val, (int, float)):
+                payload[field] = val
+            else:
+                payload.pop(field, None)
 
     constraints = payload.get("constraints")
     if not isinstance(constraints, list):
@@ -120,7 +129,11 @@ def _normalize_numeric_fields(payload: dict[str, Any]) -> None:
             continue
         for field in ("length", "width", "height", "ratio", "degrees"):
             if field in constraint:
-                constraint[field] = _coerce_numeric_value(constraint[field])
+                val = _coerce_numeric_value(constraint[field])
+                if isinstance(val, (int, float)):
+                    constraint[field] = val
+                else:
+                    constraint.pop(field, None)
 
 
 
@@ -275,10 +288,117 @@ def _repair_right_triangle_vertex(
 
 
 
+def _repair_text_based_midpoints_and_centroids(
+    constraints: list[dict[str, Any]],
+    problem_text: str,
+) -> None:
+    normalized = _normalize_math_text(problem_text)
+
+    # 1. Regex to find midpoints: "M là trung điểm [của] SD"
+    midpoint_matches = re.findall(
+        r"\b([A-Z]'?)\s+là\s+trung\s+điểm\s+(?:của\s+)?([A-Z]'?[A-Z]'?)(?!\w)",
+        normalized,
+        re.IGNORECASE
+    )
+    for pt, seg_str in midpoint_matches:
+        pt = pt.upper()
+        seg_pts = re.findall(r"[A-Z]'?", seg_str.upper())
+        found = False
+        for c in constraints:
+            if not isinstance(c, dict):
+                continue
+            if c.get("point") == pt:
+                c["type"] = "midpoint"
+                c["segment"] = seg_pts
+                c.pop("points", None)
+                c.pop("ratio", None)
+                c.pop("from_point", None)
+                c.pop("length", None)
+                c.pop("width", None)
+                c.pop("height", None)
+                c.pop("degrees", None)
+                found = True
+                break
+        if not found:
+            constraints.append({
+                "type": "midpoint",
+                "point": pt,
+                "segment": seg_pts
+            })
+
+    # 2. Regex to find centroids: "N là trọng tâm tam giác SAB"
+    centroid_matches = re.findall(
+        r"\b([A-Z]'?)\s+là\s+trọng\s+tâm\s+(?:của\s+)?(?:tam\s+giác\s+)?([A-Z]'?[A-Z]'?[A-Z]'?)(?!\w)",
+        normalized,
+        re.IGNORECASE
+    )
+    for pt, tri_str in centroid_matches:
+        pt = pt.upper()
+        tri_pts = re.findall(r"[A-Z]'?", tri_str.upper())
+        found = False
+        for c in constraints:
+            if not isinstance(c, dict):
+                continue
+            if c.get("point") == pt:
+                c["type"] = "centroid"
+                c["points"] = tri_pts
+                c.pop("segment", None)
+                c.pop("ratio", None)
+                c.pop("from_point", None)
+                c.pop("length", None)
+                c.pop("width", None)
+                c.pop("height", None)
+                c.pop("degrees", None)
+                found = True
+                break
+        if not found:
+            constraints.append({
+                "type": "centroid",
+                "point": pt,
+                "points": tri_pts
+            })
+
+    # 3. Regex to find intersection: "MN cắt mặt phẳng (SBC) tại điểm I"
+    inter_match = re.search(
+        r"\b([A-Z]'?[A-Z]'?)\s+cắt\s+(?:mặt\s+phẳng\s+)?\(?([A-Z'’]{3,8})\)?\s+(?:tại|ở)\s+(?:điểm\s+)?([A-Z]'?)(?!\w)",
+        normalized,
+        re.IGNORECASE
+    )
+    if inter_match:
+        line_str, plane_str, pt = inter_match.groups()
+        pt = pt.upper()
+        line_pts = re.findall(r"[A-Z]'?", line_str.upper())
+        plane_pts = re.findall(r"[A-Z]'?", plane_str.upper())
+        found = False
+        for c in constraints:
+            if not isinstance(c, dict):
+                continue
+            if c.get("point") == pt or c.get("type") == "intersection":
+                c["type"] = "intersection"
+                c["point"] = pt
+                c["segment"] = line_pts
+                c["points"] = plane_pts
+                found = True
+                break
+        if not found:
+            constraints.append({
+                "type": "intersection",
+                "point": pt,
+                "segment": line_pts,
+                "points": plane_pts
+            })
+
+
 def _repair_centroid_constraints(constraints: list[dict[str, Any]]) -> None:
     for constraint in constraints:
         if not isinstance(constraint, dict):
             continue
+        if constraint.get("type") == "midpoint":
+            seg = constraint.get("segment") or []
+            pts = constraint.get("points") or []
+            if len(seg) == 3 or len(pts) == 3:
+                constraint["type"] = "centroid"
+
         if (
             constraint.get("type") == "centroid"
             and not constraint.get("points")
@@ -403,9 +523,11 @@ def _mentions_parallelogram_base(problem_text: str) -> bool:
 
 
 def _choose_side_and_base_plane(plane1: str, plane2: str) -> tuple[str | None, str | None]:
-    if len(plane1) == 3 and len(plane2) >= 3:
+    p1_pts = re.findall(r"[A-Z]'?", plane1)
+    p2_pts = re.findall(r"[A-Z]'?", plane2)
+    if len(p1_pts) == 3 and len(p2_pts) >= 3:
         return plane1, plane2
-    if len(plane2) == 3 and len(plane1) >= 3:
+    if len(p2_pts) == 3 and len(p1_pts) >= 3:
         return plane2, plane1
     return None, None
 
@@ -489,6 +611,186 @@ def _repair_ratio_point_constraints(constraints: list[dict[str, Any]]) -> None:
                 constraint["point"] = pts[1]
                 constraint["segment"] = [pts[0], pts[2]]
                 constraint.pop("points", None)
+
+
+def _normalize_apex_constraints(constraints: list[dict[str, Any]]) -> None:
+    for c in constraints:
+        if not isinstance(c, dict):
+            continue
+        if c.get("type") in ("apex", "pyramid", "regular_pyramid"):
+            pt = c.get("point")
+            pts = c.get("points")
+            if pt and pts:
+                if pt in pts:
+                    pts = [p for p in pts if p != pt]
+                c["points"] = [pt, *pts]
+                c.pop("point", None)
+
+
+def _add_coplanar_constraints_for_sub_shapes(
+    constraints: list[dict[str, Any]],
+    problem_text: str,
+) -> None:
+    normalized = _normalize_math_text(problem_text)
+    
+    # 1. Tìm các mặt phẳng trong ngoặc đơn, ví dụ (A'AC), (SBD), (SBC)
+    plane_matches = re.findall(r"\(\s*([A-Z'’]{3,8})\s*\)", problem_text)
+    
+    # 2. Tìm các đáy hình chóp phụ, ví dụ S.ADNM
+    pyramid_matches = re.findall(r"\b[A-Z]'?\s*\.\s*([A-Z'’]{3,8})\b", normalized)
+    
+    candidates = set()
+    for s in plane_matches + pyramid_matches:
+        pts = tuple(re.findall(r"[A-Z]'?", s))
+        if len(pts) >= 3:
+            candidates.add(pts)
+            
+    # Lọc bỏ các mặt cấu trúc chính của chóp và lăng trụ
+    structural_faces = set()
+    
+    pyramid = _extract_pyramid(problem_text)
+    if pyramid:
+        apex, base = pyramid
+        n = len(base)
+        structural_faces.add(frozenset(base))
+        for i in range(n):
+            structural_faces.add(frozenset([apex, base[i], base[(i + 1) % n]]))
+            
+    prism = _extract_prism(problem_text)
+    if prism:
+        base, top = prism
+        n = len(base)
+        structural_faces.add(frozenset(base))
+        structural_faces.add(frozenset(top))
+        for i in range(n):
+            structural_faces.add(frozenset([base[i], base[(i + 1) % n], top[(i + 1) % n], top[i]]))
+                
+    for pts in candidates:
+        cand_set = frozenset(pts)
+        if any(cand_set.issubset(sf) for sf in structural_faces):
+            continue
+        # Tránh trùng lặp
+        exists = any(
+            isinstance(c, dict) 
+            and c.get("type") == "coplanar" 
+            and frozenset(c.get("points") or []) == frozenset(pts)
+            for c in constraints
+        )
+        if not exists:
+            constraints.append({
+                "type": "coplanar",
+                "points": list(pts)
+            })
+
+
+def _repair_list_based_midpoints_and_centroids(
+    constraints: list[dict[str, Any]],
+    problem_text: str,
+) -> None:
+    normalized = _normalize_math_text(problem_text)
+    # Split by common sentence delimiters
+    clauses = re.split(r"[.;\n]", normalized)
+    for clause in clauses:
+        clause = clause.strip()
+        if "trung điểm" in clause.lower():
+            parts = re.split(r"trung\s+điểm", clause, flags=re.IGNORECASE)
+            if len(parts) == 2:
+                left, right = parts
+                pts = re.findall(r"\b([A-Z]'?)(?!\w)", left)
+                segs = re.findall(r"\b([A-Z]'?[A-Z]'?)(?!\w)", right)
+                if len(pts) == len(segs) and len(pts) >= 1:
+                    for pt, seg_str in zip(pts, segs):
+                        seg_pts = re.findall(r"[A-Z]'?", seg_str)
+                        found = False
+                        for c in constraints:
+                            if not isinstance(c, dict):
+                                continue
+                            if c.get("point") == pt:
+                                c["type"] = "midpoint"
+                                c["segment"] = seg_pts
+                                c.pop("points", None)
+                                c.pop("ratio", None)
+                                c.pop("from_point", None)
+                                c.pop("length", None)
+                                c.pop("width", None)
+                                c.pop("height", None)
+                                c.pop("degrees", None)
+                                found = True
+                                break
+                        if not found:
+                            constraints.append({
+                                "type": "midpoint",
+                                "point": pt,
+                                "segment": seg_pts
+                            })
+        elif "trọng tâm" in clause.lower():
+            parts = re.split(r"trọng\s+tâm", clause, flags=re.IGNORECASE)
+            if len(parts) == 2:
+                left, right = parts
+                pts = re.findall(r"\b([A-Z]'?)(?!\w)", left)
+                tris = re.findall(r"\b([A-Z]'?[A-Z]'?[A-Z]'?)(?!\w)", right)
+                if len(pts) == len(tris) and len(pts) >= 1:
+                    for pt, tri_str in zip(pts, tris):
+                        tri_pts = re.findall(r"[A-Z]'?", tri_str)
+                        found = False
+                        for c in constraints:
+                            if not isinstance(c, dict):
+                                continue
+                            if c.get("point") == pt:
+                                c["type"] = "centroid"
+                                c["points"] = tri_pts
+                                c.pop("segment", None)
+                                c.pop("ratio", None)
+                                c.pop("from_point", None)
+                                c.pop("length", None)
+                                c.pop("width", None)
+                                c.pop("height", None)
+                                c.pop("degrees", None)
+                                found = True
+                                break
+                        if not found:
+                            constraints.append({
+                                "type": "centroid",
+                                "point": pt,
+                                "points": tri_pts
+                            })
+
+
+def _remove_shape_constraints_on_derived_points(constraints: list[dict[str, Any]]) -> None:
+    derived_types = {
+        "midpoint", "ratio_point", "centroid", "intersection",
+        "foot_perpendicular", "foot_on_plane", "symmetric",
+        "median", "angle_bisector", "circumcenter", "incenter",
+        "orthocenter", "equidistant"
+    }
+    derived_pts = set()
+    for c in constraints:
+        if isinstance(c, dict) and c.get("type") in derived_types:
+            pt = c.get("point")
+            if pt:
+                derived_pts.add(pt)
+
+    structural_types = {
+        "square", "rectangle", "parallelogram", "rhombus", "trapezoid",
+        "equilateral_triangle", "isosceles_triangle", "right_triangle",
+        "regular_tetrahedron", "cube", "rectangular_prism", "prism",
+        "oblique_prism", "apex", "regular_pyramid", "pyramid",
+        "regular_hexagon", "regular_octahedron", "truncated_pyramid",
+        "regular_polygon", "right_prism",
+    }
+
+    kept = []
+    for c in constraints:
+        if not isinstance(c, dict):
+            kept.append(c)
+            continue
+        ctype = c.get("type")
+        if ctype in structural_types:
+            pts = c.get("points") or []
+            if any(p in derived_pts for p in pts):
+                continue
+        kept.append(c)
+    constraints[:] = kept
 
 
 # Dùng GeometryInput để validate lại JSON từ LLM, đảm bảo đúng schema và kiểu dữ liệu

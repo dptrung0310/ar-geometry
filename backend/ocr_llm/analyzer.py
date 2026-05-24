@@ -19,7 +19,7 @@ from ocr_llm.prompts import BASE_PROMPT_TEMPLATE, constraints_for, prompt_contex
 from ocr_llm.repairs import _repair_geometry_payload
 
 
-DEFAULT_ANALYZER_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_ANALYZER_MODEL = "llama-3.1-8b-instant"
 DEFAULT_OCR_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 logger = logging.getLogger(__name__)
 
@@ -138,11 +138,60 @@ def analyze_problem_text(
         except Exception:
             # Fallback về bộ phân tích cú pháp của LangChain để báo lỗi chuẩn
             ChatPromptTemplate, JsonOutputParser = _import_langchain_core()
-            parser = JsonOutputParser(pydantic_object=GeometryInput)
+            parser = JsonOutputParser()
             parsed_dict = parser.parse(raw_str)
         
+    def _to_raw_dict(obj: Any) -> Any:
+        if hasattr(obj, "model_dump"):
+            return _to_raw_dict(obj.model_dump())
+        if hasattr(obj, "dict"):
+            return _to_raw_dict(obj.dict())
+        if isinstance(obj, dict):
+            return {k: _to_raw_dict(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_to_raw_dict(v) for v in obj]
+        return obj
+
+    parsed_dict = _to_raw_dict(parsed_dict)
+
     payload = _repair_geometry_payload(parsed_dict, problem_text)
     return _validate_geometry_input(payload)
+
+
+SOLVER_PROMPT_TEMPLATE = """
+Bạn là một giáo viên chuyên ngành Toán học phổ thông (đặc biệt là hình học không gian).
+Hãy giải bài toán sau từ văn bản OCR một cách chi tiết từng bước, rõ ràng, chính xác.
+
+Quy tắc:
+1. Sử dụng ngôn ngữ Tiếng Việt, văn phong sư phạm dễ hiểu.
+2. Trình bày lời giải bằng định dạng Markdown kết hợp LaTeX (dùng ký hiệu $ cho công thức toán học, ví dụ $S.ABCD$, $a\\sqrt{{3}}$, góc $\\widehat{{SAB}} = 60^\\circ$).
+3. Nếu đề bài yêu cầu tính toán (ví dụ: tính thể tích, tính khoảng cách, góc), hãy đưa ra công thức tổng quát trước, thay số và tính ra kết quả cuối cùng.
+4. Trình bày các bước rõ ràng (ví dụ: Bước 1: Xác định chiều cao; Bước 2: Tính diện tích đáy...).
+
+Văn bản đề toán OCR:
+{problem_text}
+
+Lời giải chi tiết từng bước:
+"""
+
+def generate_problem_solution(
+    problem_text: str,
+    *,
+    model_name: str = DEFAULT_ANALYZER_MODEL,
+) -> str:
+    """Generate a step-by-step mathematical solution to the problem text using ChatGroq."""
+    ChatGroq = _import_chat_groq()
+    llm = ChatGroq(
+        model_name=model_name,
+        temperature=0.2,
+        groq_api_key=_resolve_groq_api_key(),
+    )
+    prompt_str = SOLVER_PROMPT_TEMPLATE.format(problem_text=problem_text)
+    messages = [
+        {"role": "user", "content": prompt_str}
+    ]
+    response = llm.invoke(messages)
+    return response.content
 
 
 # Gộp hai bước trên: OCR ảnh rồi phân tích văn bản thành GeometryInput

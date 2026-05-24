@@ -11,15 +11,24 @@ from pathlib import Path
 
 from geometry_engine import GeometryEngine
 from geometry_engine.models import GeometryOutput
-from ocr_llm import analyze_image
+from ocr_llm import analyze_image, generate_problem_solution
 
 
 def solve_image(
     image_path: str | Path,
 ) -> GeometryOutput:
     """Analyze a problem image and return GeometryEngine output."""
-    _ocr_text, geometry_input = analyze_image(image_path)
-    return GeometryEngine().solve(geometry_input)
+    ocr_text, geometry_input = analyze_image(image_path)
+    print("GEOMETRY INPUT CONSTRAINTS:")
+    for c in geometry_input.constraints:
+        print("  ", c.model_dump(exclude_none=True))
+    output = GeometryEngine().solve(geometry_input)
+    output.ocr_text = ocr_text
+    try:
+        output.solution = generate_problem_solution(ocr_text)
+    except Exception as exc:
+        output.solution = f"Không thể tự động sinh lời giải chi tiết: {exc}"
+    return output
 
 
 def solve_image_json(

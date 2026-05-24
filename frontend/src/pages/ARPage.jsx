@@ -3,10 +3,68 @@ import * as THREE from "three";
 
 import SectionHeader from "../components/ui/SectionHeader";
 import { ARControls } from "../components/ar/ARControls";
+import MathRenderer from "../components/ui/MathRenderer";
 
 import useViewerStore from "../store/useViewerStore";
 import { useAR } from "../hooks/useAR";
 import { computeLabelPositions } from "../utils/buildCustomGeometry";
+
+function TerminalLoader() {
+  const [logs, setLogs] = useState([]);
+
+  useEffect(() => {
+    const messages = [
+      "[SYSTEM] Khởi động luồng xử lý hình học AR...",
+      "[OCR] Đang chạy OCR quét đề toán từ hình ảnh...",
+      "[LLM] Đang phân tích và trích xuất các ràng buộc...",
+      "[ENGINE] Đang khởi tạo bộ giải Geometry Engine...",
+      "[ENGINE] Đang tối ưu hóa hệ tọa độ 3D...",
+      "[LLM] Đang soạn thảo chứng minh toán học (LaTeX)...",
+      "[SYSTEM] Hoàn tất! Đang kết xuất hình học không gian..."
+    ];
+
+    setLogs([messages[0]]);
+    
+    const timers = [];
+    for (let i = 1; i < messages.length; i++) {
+      const t = setTimeout(() => {
+        setLogs(prev => [...prev, messages[i]]);
+      }, i * 1100);
+      timers.push(t);
+    }
+
+    return () => {
+      timers.forEach(t => clearTimeout(t));
+    };
+  }, []);
+
+  return (
+    <div style={styles.terminal}>
+      <div style={styles.terminalHeader}>
+        <div style={styles.terminalDotRed} />
+        <div style={styles.terminalDotYellow} />
+        <div style={styles.terminalDotGreen} />
+        <span style={styles.terminalTitle}>geometry_engine_terminal.sh</span>
+      </div>
+      <div style={styles.terminalBody}>
+        {logs.map((log, idx) => {
+          let color = "var(--text2)";
+          if (log.includes("[SYSTEM]")) color = "#10ffa0";
+          else if (log.includes("[OCR]")) color = "#00e5ff";
+          else if (log.includes("[LLM]")) color = "#ffd700";
+          else if (log.includes("[ENGINE]")) color = "#ff79c6";
+
+          return (
+            <div key={idx} style={{ ...styles.terminalLine, color }}>
+              <span style={styles.terminalPrompt}>$</span> {log}
+            </div>
+          );
+        })}
+        <div style={styles.terminalCursor} />
+      </div>
+    </div>
+  );
+}
 
 export default function ARPage() {
   const canvasRef = useRef(null);
@@ -23,6 +81,8 @@ export default function ARPage() {
     geometryData,
     showEdgeLengths,
     showConstraints,
+    isLoading,
+    apiError,
   } = useViewerStore();
 
   const { cameraActive, toggleCamera, error, videoRef, cameraRef, customGroupRef } = useAR(
@@ -115,18 +175,72 @@ export default function ARPage() {
       />
 
       <div style={styles.layout} className="ar-layout">
-        {/* ── VIEWER ─────────────────────────────────────────────── */}
+        {/* ── CỬA SỔ LỜI GIẢI (BÊN TRÁI) ─────────────────────────── */}
+        <div style={styles.solutionCard}>
+          <div style={styles.solutionHeader}>
+            <span style={styles.solutionTitleIcon}>📝</span>
+            <span style={styles.solutionTitle}>Lời giải & Chứng minh</span>
+          </div>
+
+          <div style={styles.solutionBody}>
+            {isLoading ? (
+              <TerminalLoader />
+            ) : apiError ? (
+              <div style={styles.solutionError}>
+                <div style={styles.errorIcon}>⚠️</div>
+                <div style={styles.errorTitle}>Lỗi xử lý hệ thống</div>
+                <p style={styles.errorText}>{apiError}</p>
+              </div>
+            ) : mode === "custom" && geometryData ? (
+              <>
+                {/* Đề bài OCR */}
+                {geometryData.problem && (
+                  <div style={styles.problemBox}>
+                    <div style={styles.boxLabel}>VĂN BẢN ĐỀ BÀI (OCR)</div>
+                    <div style={styles.problemTextScanned}>{geometryData.problem}</div>
+                  </div>
+                )}
+
+                {/* Lời giải toán chi tiết */}
+                {geometryData.solution ? (
+                  <div style={styles.solutionContentBox}>
+                    <div style={styles.boxLabel}>LỜI GIẢI CHI TIẾT TỪNG BƯỚC</div>
+                    <MathRenderer text={geometryData.solution} />
+                  </div>
+                ) : (
+                  <div style={styles.noSolutionBox}>
+                    <span style={{ fontSize: "28px", marginBottom: "10px" }}>💡</span>
+                    <div style={{ fontWeight: 600 }}>Chưa có lời giải chi tiết.</div>
+                    <p style={{ fontSize: "12px", color: "var(--text3)", marginTop: "4px" }}>
+                      Hãy tải lên ảnh đề bài hình học của bạn để AI tự động trích xuất lời giải.
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={styles.emptyStateBox}>
+                <span style={{ fontSize: "36px", marginBottom: "12px" }}>📐</span>
+                <div style={{ fontWeight: 600, color: "var(--text)" }}>Bản giải toán hình học không gian</div>
+                <p style={{ fontSize: "13px", color: "var(--text3)", marginTop: "6px", maxWidth: "300px" }}>
+                  Hãy tải ảnh đề bài lên hoặc chọn bài toán để xem lời giải chi tiết và dựng mô hình 3D tương tác.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── CỬA SỔ VẼ HÌNH 3D (Ở GIỮA/PHẢI) ────────────────────── */}
         <div style={styles.viewerCard}>
           <div style={styles.viewerHeader}>
             <div>
               <div style={styles.shapeName}>
                 {mode === "custom"
-                  ? geometryData?.label || "Bài toán hình học"
+                  ? geometryData?.label || "Hình vẽ 3D tương tác"
                   : currentShape?.name}
               </div>
               <div style={styles.shapeInfo}>
                 {mode === "custom"
-                  ? "Geometry Engine Output"
+                  ? "Interactive Geometry View"
                   : "AR Hand Tracking Active"}
               </div>
             </div>
@@ -146,14 +260,6 @@ export default function ARPage() {
               </span>
             </div>
           </div>
-
-          {/* ── Mô tả bài toán ──────────────────────────────────── */}
-          {mode === "custom" && geometryData?.problem && (
-            <div style={styles.problemBanner}>
-              <span style={styles.problemIcon}>📐</span>
-              <span style={styles.problemText}>{geometryData.problem}</span>
-            </div>
-          )}
 
           <div style={styles.canvasWrapper}>
             {/* CAMERA VIDEO */}
@@ -189,7 +295,7 @@ export default function ARPage() {
                   </div>
                 ))}
 
-                {/* Edge length labels — chỉ hiện khi bật showEdgeLengths */}
+                {/* Edge length labels */}
                 {showEdgeLengths && labelData.edgeLabels.map((lbl) => (
                   <div
                     key={`e-${lbl.name}`}
@@ -206,12 +312,12 @@ export default function ARPage() {
             {!cameraActive && (
               <div style={styles.overlay}>
                 <div style={styles.overlayBox}>
-                  <div style={styles.overlayIcon}>🎯</div>
-                  <h2 style={styles.overlayTitle}>AR Geometry Viewer</h2>
+                  <div style={styles.overlayIcon}>👁️</div>
+                  <h3 style={styles.overlayTitle}>Interactive 3D Canvas</h3>
                   <p style={styles.overlayDesc}>
                     {mode === "custom" && geometryData
-                      ? "Bài toán đã tải. Bật camera để xem hình 3D AR."
-                      : "Chọn bài toán hoặc hình chuẩn, rồi bật camera."}
+                      ? "Hình vẽ đã dựng. Bật camera để xem dưới dạng AR hoặc di chuột/cử chỉ bên trong khung này để tương tác."
+                      : "Hãy chọn hình chuẩn hoặc tải ảnh lên để bắt đầu."}
                   </p>
                 </div>
               </div>
@@ -253,7 +359,7 @@ export default function ARPage() {
           )}
         </div>
 
-        {/* ── CONTROLS ─────────────────────────────────────────── */}
+        {/* ── BẢNG ĐIỀU KHIỂN (BÊN PHẢI) ────────────────────────── */}
         <div style={styles.controlsCol}>
           <div style={styles.controlsCard}>
             <div style={styles.panelTitle}>Điều khiển AR</div>
@@ -278,6 +384,13 @@ export default function ARPage() {
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes blink {
+          0%, 100% { background-color: transparent }
+          50% { background-color: #50fa7b }
+        }
+      `}</style>
     </div>
   );
 }
@@ -323,7 +436,7 @@ const styles = {
 
   layout: {
     display: "grid",
-    gridTemplateColumns: "1fr 320px",
+    gridTemplateColumns: "1.1fr 1.2fr 320px",
     gap: "20px",
     alignItems: "stretch",
   },
@@ -595,5 +708,209 @@ const styles = {
     color: "var(--text3)",
     fontSize: "12px",
     marginTop: "3px",
+  },
+
+  solutionCard: {
+    background: "var(--card)",
+    border: "1px solid var(--border)",
+    borderRadius: "18px",
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+    minHeight: "720px",
+  },
+
+  solutionHeader: {
+    padding: "18px 22px",
+    borderBottom: "1px solid var(--border)",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+  },
+
+  solutionTitleIcon: {
+    fontSize: "18px",
+  },
+
+  solutionTitle: {
+    fontSize: "15px",
+    fontWeight: 600,
+    color: "var(--text)",
+  },
+
+  solutionBody: {
+    padding: "20px",
+    flex: 1,
+    overflowY: "auto",
+    maxHeight: "650px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "18px",
+  },
+
+  problemBox: {
+    background: "rgba(255,255,255,0.02)",
+    border: "1px solid var(--border)",
+    borderRadius: "12px",
+    padding: "14px 16px",
+  },
+
+  boxLabel: {
+    fontSize: "10px",
+    color: "var(--text3)",
+    fontFamily: "'Space Mono', monospace",
+    fontWeight: 600,
+    letterSpacing: "0.5px",
+    marginBottom: "8px",
+  },
+
+  problemTextScanned: {
+    fontSize: "13.5px",
+    color: "var(--text2)",
+    lineHeight: "1.6",
+    fontStyle: "italic",
+  },
+
+  solutionContentBox: {
+    background: "rgba(0, 229, 255, 0.01)",
+    border: "1px solid rgba(0, 229, 255, 0.08)",
+    borderRadius: "12px",
+    padding: "16px 18px",
+  },
+
+  noSolutionBox: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    color: "var(--text2)",
+    padding: "40px 20px",
+    background: "rgba(255,255,255,0.01)",
+    border: "1px dashed var(--border)",
+    borderRadius: "12px",
+    flex: 1,
+  },
+
+  emptyStateBox: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    flex: 1,
+    padding: "40px 20px",
+  },
+
+  solutionError: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    padding: "30px 20px",
+    border: "1px solid rgba(255,0,0,0.15)",
+    background: "rgba(255,0,0,0.02)",
+    borderRadius: "12px",
+    color: "#ff8a8a",
+    flex: 1,
+  },
+
+  errorIcon: {
+    fontSize: "32px",
+    marginBottom: "10px",
+  },
+
+  errorTitle: {
+    fontWeight: 600,
+    fontSize: "15px",
+    marginBottom: "6px",
+  },
+
+  errorText: {
+    fontSize: "12.5px",
+    opacity: 0.85,
+    lineHeight: 1.5,
+  },
+
+  terminal: {
+    background: "#0c0f1d",
+    border: "1px solid #1a223f",
+    borderRadius: "10px",
+    fontFamily: "'Space Mono', Consolas, monospace",
+    fontSize: "12px",
+    overflow: "hidden",
+    boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    minHeight: "360px",
+  },
+
+  terminalHeader: {
+    background: "#14192b",
+    padding: "10px 14px",
+    borderBottom: "1px solid #1a223f",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+
+  terminalDotRed: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "50%",
+    background: "#ff5f56",
+  },
+
+  terminalDotYellow: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "50%",
+    background: "#ffbd2e",
+  },
+
+  terminalDotGreen: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "50%",
+    background: "#27c93f",
+  },
+
+  terminalTitle: {
+    color: "#8c9fc2",
+    fontSize: "11px",
+    marginLeft: "10px",
+  },
+
+  terminalBody: {
+    padding: "16px",
+    flex: 1,
+    overflowY: "auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    background: "#0c0f1d",
+  },
+
+  terminalLine: {
+    lineHeight: "1.5",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-all",
+  },
+
+  terminalPrompt: {
+    color: "#50fa7b",
+    marginRight: "6px",
+    fontWeight: "bold",
+  },
+
+  terminalCursor: {
+    display: "inline-block",
+    width: "8px",
+    height: "14px",
+    background: "#50fa7b",
+    animation: "blink 1s step-end infinite",
+    marginTop: "4px",
   },
 };

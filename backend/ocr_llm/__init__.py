@@ -6,6 +6,7 @@ from .analyzer import (
     SUPPORTED_CONSTRAINTS,
     analyze_image,
     analyze_problem_text,
+    generate_problem_solution,
     image_to_base64,
     run_ocr,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "SUPPORTED_CONSTRAINTS",
     "analyze_image",
     "analyze_problem_text",
+    "generate_problem_solution",
     "image_to_base64",
     "run_ocr",
 ]

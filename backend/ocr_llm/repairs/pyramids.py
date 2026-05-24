@@ -31,17 +31,20 @@ def _repair_equal_side_face_angle_constraints(
         return
 
     plane1, plane2, plane3, degrees_str = match.groups()
-    common = set(plane1) & set(plane2) & set(plane3)
+    p1_pts = re.findall(r"[A-Z]'?", plane1)
+    p2_pts = re.findall(r"[A-Z]'?", plane2)
+    p3_pts = re.findall(r"[A-Z]'?", plane3)
+    common = set(p1_pts) & set(p2_pts) & set(p3_pts)
     if len(common) != 1:
         return
     apex = next(iter(common))
-    base = [name for name in plane1 if name != apex]
+    base = [name for name in p1_pts if name != apex]
     if len(base) != 2:
-        base = [name for name in plane2 if name != apex]
+        base = [name for name in p2_pts if name != apex]
     if len(base) != 2:
         return
 
-    triangle_points = [base[0], base[1], next(name for name in plane3 if name not in {apex, *base})]
+    triangle_points = [base[0], base[1], next(name for name in p3_pts if name not in {apex, *base})]
     side_face_point_sets = {
         frozenset([apex, triangle_points[0], triangle_points[1]]),
         frozenset([apex, triangle_points[0], triangle_points[2]]),
@@ -138,8 +141,10 @@ def _repair_dihedral_constraints(
     if not side_plane or not base_plane:
         return
 
-    edge = sorted(set(side_plane) & set(base_plane))
-    apex = next((name for name in side_plane if name not in edge), None)
+    side_pts = re.findall(r"[A-Z]'?", side_plane)
+    base_pts = re.findall(r"[A-Z]'?", base_plane)
+    edge = sorted(set(side_pts) & set(base_pts))
+    apex = next((name for name in side_pts if name not in edge), None)
     foot = _find_perpendicular_foot(constraints, apex)
     if apex is None or foot is None or len(edge) != 2:
         return
@@ -150,7 +155,7 @@ def _repair_dihedral_constraints(
         if not (
             isinstance(constraint, dict)
             and constraint.get("type") == "angle"
-            and constraint.get("points") == list(side_plane)
+            and constraint.get("points") == side_pts
             and float(constraint.get("degrees", 0.0)) == float(degrees_str)
         )
     ]
@@ -161,7 +166,7 @@ def _repair_dihedral_constraints(
             "point": apex,
             "from_point": foot,
             "segment": edge,
-            "points": list(base_plane),
+            "points": base_pts,
             "degrees": float(degrees_str),
         }
     )

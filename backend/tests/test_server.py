@@ -146,7 +146,7 @@ class TestSolveImageEndpoint:
 
         body = resp.json()
         assert resp.status_code == 200
-        assert set(body.keys()) == {"points", "edges", "faces", "unresolved_points", "violations"}
+        assert {"points", "edges", "faces", "unresolved_points", "violations"}.issubset(set(body.keys()))
         assert set(body["points"]["A"].keys()) == {"x", "y", "z"}
 
     def test_image_field_is_required(self, client):

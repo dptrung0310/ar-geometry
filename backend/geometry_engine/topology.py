@@ -30,11 +30,41 @@ class TopologyBuilder:
         self._edge_set: set[tuple[str, str]] = set()
         self._faces: list[list[str]] = []
         self._face_keys: set[frozenset[str]] = set()  # for de-duplication
+        self._constraints: list[Constraint] = []
 
     # ── Public ────────────────────────────────────────────────────────────────
 
     def process(self, constraint: Constraint) -> None:
         """Extract topology from a single constraint."""
+        self._constraints.append(constraint)
+
+    def build(self) -> tuple[list[Edge], list[Face]]:
+        """Return de-duplicated edge and face lists after a two-pass topology generation."""
+        structural_types = {
+            "square", "rectangle", "parallelogram", "rhombus", "trapezoid",
+            "equilateral_triangle", "isosceles_triangle", "right_triangle",
+            "regular_tetrahedron", "cube", "rectangular_prism", "prism",
+            "oblique_prism", "apex", "regular_pyramid", "pyramid",
+            "regular_hexagon", "regular_octahedron", "truncated_pyramid",
+            "regular_polygon", "right_prism",
+        }
+
+        # Pass 1: Structural shape constraints first
+        for c in self._constraints:
+            if c.type in structural_types:
+                self._process_single(c)
+
+        # Pass 2: Auxiliary and derived point constraints second
+        for c in self._constraints:
+            if c.type not in structural_types:
+                self._process_single(c)
+
+        edges = [Edge(p1=a, p2=b) for a, b in sorted(self._edge_set)]
+        faces = [Face(vertices=f) for f in self._faces]
+        return edges, faces
+
+    def _process_single(self, constraint: Constraint) -> None:
+        """Process a single constraint."""
         handler = {
             "square":                self._topo_quad,
             "rectangle":             self._topo_quad,
@@ -57,15 +87,24 @@ class TopologyBuilder:
             "truncated_pyramid":     self._topo_truncated_pyramid,
             "regular_polygon":       self._topo_regular_polygon,
             "right_prism":           self._topo_right_prism,
+            "midpoint":              self._topo_midpoint,
+            "ratio_point":           self._topo_ratio_point,
+            "centroid":              self._topo_centroid,
+            "circumcenter":          self._topo_triangle_center,
+            "orthocenter":           self._topo_triangle_center,
+            "incenter":              self._topo_triangle_center,
+            "equidistant":           self._topo_equidistant,
+            "angle_bisector":        self._topo_angle_bisector,
+            "median":                self._topo_median,
+            "foot_perpendicular":    self._topo_foot_perpendicular,
+            "foot_on_plane":         self._topo_foot_on_plane,
+            "perpendicular_to_plane":self._topo_perpendicular_to_plane,
+            "symmetric":             self._topo_symmetric,
+            "intersection":          self._topo_intersection,
+            "coplanar":              self._topo_regular_polygon,
         }.get(constraint.type)
         if handler:
             handler(constraint)
-
-    def build(self) -> tuple[list[Edge], list[Face]]:
-        """Return de-duplicated edge and face lists."""
-        edges = [Edge(p1=a, p2=b) for a, b in sorted(self._edge_set)]
-        faces = [Face(vertices=f) for f in self._faces]
-        return edges, faces
 
     # ── Topology handlers ─────────────────────────────────────────────────────
 
@@ -152,14 +191,18 @@ class TopologyBuilder:
 
     def _topo_pyramid(self, c: Constraint) -> None:
         """
-        Pyramid / apex: apex is points[0], base is points[1:].
+        Pyramid / apex: apex is point (if specified) or points[0], base is points[1:] (or points).
         Generates lateral edges, base polygon, and triangular lateral faces.
         """
         pts = c.points or []
-        if len(pts) < 4:
-            return
-        apex = pts[0]
-        base = pts[1:]
+        if c.point:
+            apex = c.point
+            base = pts
+        else:
+            if len(pts) < 4:
+                return
+            apex = pts[0]
+            base = pts[1:]
         n = len(base)
 
         # Lateral edges (apex → each base vertex)
@@ -270,8 +313,136 @@ class TopologyBuilder:
         key = (min(p1, p2), max(p1, p2))
         self._edge_set.add(key)
 
+    def _remove_edge(self, p1: str, p2: str) -> None:
+        """Remove an undirected edge if it exists."""
+        key = (min(p1, p2), max(p1, p2))
+        self._edge_set.discard(key)
+
     def _add_face(self, pts: list[str]) -> None:
         key = frozenset(pts)
         if key not in self._face_keys:
             self._face_keys.add(key)
             self._faces.append(list(pts))
+
+    # ── Derived/Auxiliary point topology handlers ─────────────────────────────
+
+    def _topo_midpoint(self, c: Constraint) -> None:
+        J = c.point
+        seg = c.segment or []
+        if not J or len(seg) != 2:
+            return
+        P, Q = seg
+        self._remove_edge(P, Q)
+        self._add_edge(P, J)
+        self._add_edge(J, Q)
+
+    def _topo_ratio_point(self, c: Constraint) -> None:
+        G = c.point
+        seg = c.segment or []
+        if not G or len(seg) != 2:
+            return
+        A, B = seg
+        self._remove_edge(A, B)
+        self._add_edge(A, G)
+        self._add_edge(G, B)
+
+    def _topo_centroid(self, c: Constraint) -> None:
+        G = c.point
+        ref = c.points or []
+        if not G or not ref:
+            return
+        for p in ref:
+            self._add_edge(p, G)
+
+    def _topo_triangle_center(self, c: Constraint) -> None:
+        O = c.point
+        pts = c.points or []
+        if not O or len(pts) != 3:
+            return
+        for p in pts:
+            self._add_edge(p, O)
+
+    def _topo_equidistant(self, c: Constraint) -> None:
+        O = c.point
+        pts = c.points or []
+        if not O or not pts:
+            return
+        for p in pts:
+            self._add_edge(p, O)
+
+    def _topo_angle_bisector(self, c: Constraint) -> None:
+        D = c.point
+        pts = c.points or []
+        if not D or len(pts) != 3:
+            return
+        A, B, C = pts
+        self._remove_edge(A, C)
+        self._add_edge(A, D)
+        self._add_edge(D, C)
+        self._add_edge(B, D)
+
+    def _topo_median(self, c: Constraint) -> None:
+        M = c.point
+        pts = c.points or []
+        if not M or len(pts) != 3:
+            return
+        A, B, C = pts
+        self._remove_edge(B, C)
+        self._add_edge(B, M)
+        self._add_edge(M, C)
+        self._add_edge(A, M)
+
+    def _topo_foot_perpendicular(self, c: Constraint) -> None:
+        H = c.point
+        S = c.from_point
+        seg = c.segment or []
+        if not H or not S or len(seg) != 2:
+            return
+        A, B = seg
+        self._remove_edge(A, B)
+        self._add_edge(A, H)
+        self._add_edge(B, H)
+        self._add_edge(S, H)
+
+    def _topo_foot_on_plane(self, c: Constraint) -> None:
+        H = c.point
+        S = c.from_point
+        if not H or not S:
+            return
+        self._add_edge(S, H)
+
+    def _topo_perpendicular_to_plane(self, c: Constraint) -> None:
+        S = c.point
+        A = c.from_point
+        if not S or not A:
+            return
+        self._add_edge(S, A)
+
+    def _topo_symmetric(self, c: Constraint) -> None:
+        Pp = c.point
+        P = c.from_point
+        ref = c.points or []
+        if not Pp or not P or not ref:
+            return
+        if len(ref) == 1:
+            M = ref[0]
+            self._add_edge(P, M)
+            self._add_edge(M, Pp)
+        else:
+            self._add_edge(P, Pp)
+
+    def _topo_intersection(self, c: Constraint) -> None:
+        I = c.point
+        seg = c.segment or []
+        ref = c.points or []
+        if not I or len(seg) != 2:
+            return
+        A, B = seg
+        self._remove_edge(A, B)
+        self._add_edge(A, I)
+        self._add_edge(B, I)
+        if len(ref) == 2:
+            C, D = ref
+            self._remove_edge(C, D)
+            self._add_edge(C, I)
+            self._add_edge(D, I)

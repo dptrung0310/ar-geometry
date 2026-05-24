@@ -108,3 +108,9 @@ class GeometryOutput(BaseModel):
 
     violations: list[str] = Field(default_factory=list)
     """Human-readable descriptions of unsatisfied constraints."""
+
+    ocr_text: Optional[str] = None
+    """Văn bản đề bài quét được qua OCR."""
+
+    solution: Optional[str] = None
+    """Lời giải toán học chi tiết dạng Markdown + LaTeX."""

@@ -135,22 +135,52 @@ class TestTetrahedronTopology:
         assert all(len(f) == 3 for f in fl)
 
 
-# ── Derived points have no topology ──────────────────────────────────────────
+# ── Derived and Auxiliary point topology ──────────────────────────────────────
 
-class TestDerivedPointsHaveNoTopology:
-    def test_midpoint_adds_no_edges(self):
+class TestDerivedPointsTopology:
+    def test_midpoint_splits_edge(self):
         result = solve({"points":["A","B","C","D","M"],
                         "constraints":[{"type":"square","points":["A","B","C","D"]},
                                        {"type":"midpoint","point":"M","segment":["A","B"]}]})
-        # Only 4 edges from square; midpoint M introduces no new structural edge
+        # Midpoint M splits edge A-B into A-M and M-B
         es = edge_set(result)
-        assert frozenset(["A","M"]) not in es
-        assert frozenset(["M","B"]) not in es
+        assert frozenset(["A","M"]) in es
+        assert frozenset(["M","B"]) in es
+        assert frozenset(["A","B"]) not in es
 
-    def test_ratio_point_adds_no_edges(self):
+    def test_ratio_point_splits_edge(self):
         result = solve({"points":["A","B","C","D","G"],
                         "constraints":[{"type":"square","points":["A","B","C","D"]},
                                        {"type":"ratio_point","point":"G",
                                         "segment":["A","B"],"ratio":0.25}]})
         es = edge_set(result)
-        assert frozenset(["A","G"]) not in es
+        assert frozenset(["A","G"]) in es
+        assert frozenset(["G","B"]) in es
+        assert frozenset(["A","B"]) not in es
+
+    def test_intersection_connects_lines(self):
+        result = solve({
+            "points": ["S", "A", "B", "C", "D", "M", "N", "I"],
+            "constraints": [
+                {"type": "parallelogram", "points": ["A", "B", "C", "D"]},
+                {"type": "apex", "points": ["S", "A", "B", "C", "D"]},
+                {"type": "midpoint", "point": "M", "segment": ["S", "D"]},
+                {"type": "centroid", "points": ["S", "A", "B"], "point": "N"},
+                {"type": "intersection", "points": ["S", "B", "C"], "point": "I", "segment": ["M", "N"]}
+            ]
+        })
+        es = edge_set(result)
+        # Check midpoint M splits S-D
+        assert frozenset(["S", "M"]) in es
+        assert frozenset(["M", "D"]) in es
+        assert frozenset(["S", "D"]) not in es
+        
+        # Check centroid N connects to vertices S, A, B
+        assert frozenset(["S", "N"]) in es
+        assert frozenset(["A", "N"]) in es
+        assert frozenset(["B", "N"]) in es
+
+        # Check intersection I splits M-N into M-I and I-N
+        assert frozenset(["M", "I"]) in es
+        assert frozenset(["I", "N"]) in es
+

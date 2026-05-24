@@ -115,7 +115,8 @@ export function adaptBackendResponse(backendData, problemText = "") {
   return {
     id: backendData.id || `custom_${Date.now()}`,
     label: backendData.label || "Hình vẽ từ đề bài",
-    problem: problemText,
+    problem: backendData.ocr_text || problemText,
+    solution: backendData.solution || null,
     shape_type: "custom_polyhedron",
     color: "#00e5ff",
     vertices,

@@ -22,13 +22,15 @@ export function ARControls({ onToggleCamera, cameraActive, error: cameraError })
     showConstraints,
     toggleEdgeLengths,
     toggleConstraints,
+    isLoading,
+    setIsLoading,
+    apiError,
+    setApiError,
   } = useViewerStore();
 
   const fileInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState("preset"); // 'preset' | 'problem'
   const [selectedProblemId, setSelectedProblemId] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [apiError, setApiError] = useState(null);
 
   const handleLoadProblem = (id) => {
     if (!id) return;
