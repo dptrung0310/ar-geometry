@@ -117,15 +117,71 @@ class GeometryEngine(
             if name in self.coords
         }
 
+        # Tính toán các thông số meta (chiều cao, diện tích toàn phần, thể tích)
+        z_coords = [float(self.coords[name][2]) for name in self.coords]
+        height = max(z_coords) - min(z_coords) if z_coords else 0.0
+
+        # Lọc riêng các mặt thuộc hình thể cấu trúc chính để tính thể tích/diện tích mặt ngoài (tránh mặt phẳng cắt phụ trợ)
+        struct_builder = TopologyBuilder()
+        structural_types = {
+            "square", "rectangle", "parallelogram", "rhombus", "trapezoid",
+            "equilateral_triangle", "isosceles_triangle", "right_triangle",
+            "regular_tetrahedron", "cube", "rectangular_prism", "prism",
+            "oblique_prism", "apex", "regular_pyramid", "pyramid",
+            "regular_hexagon", "regular_octahedron", "truncated_pyramid",
+            "regular_polygon", "right_prism",
+        }
+        for c in input_data.constraints:
+            if c.type in structural_types:
+                struct_builder.process(c)
+        _, struct_faces = struct_builder.build()
+
+        volume = 0.0
+        surface_area = 0.0
+        for f in struct_faces:
+            face_vertices = f.vertices
+            if len(face_vertices) < 3:
+                continue
+            if any(v not in self.coords for v in face_vertices):
+                continue
+            try:
+                # Diện tích mặt đa giác
+                area_vec = np.zeros(3)
+                n = len(face_vertices)
+                for i in range(n):
+                    p1 = self.coords[face_vertices[i]]
+                    p2 = self.coords[face_vertices[(i + 1) % n]]
+                    area_vec += np.cross(p1, p2)
+                surface_area += float(0.5 * np.linalg.norm(area_vec))
+                
+                # Thể tích hình chóp/lăng trụ (phép tích phân khối diện tích mặt của đa diện đóng)
+                v0 = self.coords[face_vertices[0]]
+                for i in range(1, len(face_vertices) - 1):
+                    v1 = self.coords[face_vertices[i]]
+                    v2 = self.coords[face_vertices[i + 1]]
+                    volume += np.dot(v0, np.cross(v1, v2)) / 6.0
+            except Exception:
+                pass
+
+        volume = abs(volume)
+        meta_dict = {
+            "volume": round(volume, 4),
+            "surface_area": round(surface_area, 4),
+            "height": round(height, 4),
+        }
+
         output = GeometryOutput(
             points=result_points,
             edges=edges,
             faces=faces,
             unresolved_points=unresolved,
             violations=violations,
+            meta=meta_dict,
         )
         if input_data.normalize:
             output = Normalizer().normalize(output)
+            # Giữ nguyên meta gốc (trước khi tọa độ bị normalize về đoạn [-1, 1])
+            output.meta = meta_dict
         return output
 
     def solve_json(self, json_str: str) -> dict:

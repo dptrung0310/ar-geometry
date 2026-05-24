@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from geometry_engine.models import GeometryInput
+from geometry_engine.models import GeometryInput, GeometryOutput
 from ocr_llm.problem_types import ProblemType, detect_problem_type
 from ocr_llm.prompts import BASE_PROMPT_TEMPLATE, constraints_for, prompt_context_for
 from ocr_llm.repairs import _repair_geometry_payload
@@ -158,40 +158,88 @@ def analyze_problem_text(
     return _validate_geometry_input(payload)
 
 
-SOLVER_PROMPT_TEMPLATE = """
-Bạn là một giáo viên chuyên ngành Toán học phổ thông (đặc biệt là hình học không gian).
-Hãy giải bài toán sau từ văn bản OCR một cách chi tiết từng bước, rõ ràng, chính xác.
-
-Quy tắc:
-1. Sử dụng ngôn ngữ Tiếng Việt, văn phong sư phạm dễ hiểu.
-2. Trình bày lời giải bằng định dạng Markdown kết hợp LaTeX (dùng ký hiệu $ cho công thức toán học, ví dụ $S.ABCD$, $a\\sqrt{{3}}$, góc $\\widehat{{SAB}} = 60^\\circ$).
-3. Nếu đề bài yêu cầu tính toán (ví dụ: tính thể tích, tính khoảng cách, góc), hãy đưa ra công thức tổng quát trước, thay số và tính ra kết quả cuối cùng.
-4. Trình bày các bước rõ ràng (ví dụ: Bước 1: Xác định chiều cao; Bước 2: Tính diện tích đáy...).
-
-Văn bản đề toán OCR:
-{problem_text}
-
-Lời giải chi tiết từng bước:
-"""
-
 def generate_problem_solution(
     problem_text: str,
     *,
-    model_name: str = DEFAULT_ANALYZER_MODEL,
+    geometry_input: GeometryInput | None = None,
+    solved_output: GeometryOutput | None = None,
 ) -> str:
-    """Generate a step-by-step mathematical solution to the problem text using ChatGroq."""
+    """Generate a step-by-step mathematical solution to the problem text using ChatGroq with fallback."""
     ChatGroq = _import_chat_groq()
-    llm = ChatGroq(
-        model_name=model_name,
-        temperature=0.2,
-        groq_api_key=_resolve_groq_api_key(),
+    
+    # 1. Trích xuất thêm context từ geometry_input và solved_output
+    context_lines = []
+    if geometry_input:
+        context_lines.append("\n[Ràng buộc hình học đã trích xuất từ đề bài]:")
+        for c in geometry_input.constraints:
+            props = []
+            if c.points: props.append(f"points={c.points}")
+            if c.point: props.append(f"point={c.point}")
+            if c.segment: props.append(f"segment={c.segment}")
+            if c.length is not None: props.append(f"length={c.length}")
+            if c.height is not None: props.append(f"height={c.height}")
+            if c.ratio is not None: props.append(f"ratio={c.ratio}")
+            if c.degrees is not None: props.append(f"degrees={c.degrees}")
+            context_lines.append(f"- {c.type}: {', '.join(props)}")
+            
+    if solved_output:
+        if solved_output.meta:
+            context_lines.append("\n[Thông số hình học tính toán từ mô hình 3D (với a = 1.0)]:")
+            for key, val in solved_output.meta.items():
+                name_vi = {"volume": "Thể tích", "surface_area": "Diện tích toàn phần", "height": "Chiều cao"}.get(key, key)
+                context_lines.append(f"- {name_vi}: {val}")
+        if solved_output.points:
+            context_lines.append("\n[Tọa độ 3D tham khảo giải bởi Geometry Engine (hệ đơn vị a=1)]: ")
+            for name, pt in solved_output.points.items():
+                context_lines.append(f"- Điểm {name}: ({pt.x:.4f}, {pt.y:.4f}, {pt.z:.4f})")
+            
+    context_str = "\n".join(context_lines)
+    
+    # 2. Xây dựng prompt
+    system_prompt = (
+        "Bạn là một giáo viên chuyên ngành Toán học phổ thông (đặc biệt là hình học không gian).\n"
+        "Hãy giải bài toán được yêu cầu một cách chính xác, ngắn gọn, súc tích, đi thẳng vào bản chất và luôn cho ra kết quả cuối cùng.\n"
+        "Quy tắc quan trọng:\n"
+        "1. Tuyệt đối KHÔNG được lặp lại các bước giải, các câu viết hoặc các kết quả đã có. Tránh mọi hình thức lặp từ hay lặp chuỗi văn bản (loop).\n"
+        "2. Sử dụng tiếng Việt chuẩn, văn phong khoa học sư phạm rõ ràng, mạch lạc. Không rườm rà dài dòng.\n"
+        "3. BẮT BUỘC: Tất cả công thức toán học, ký hiệu điểm (M, N, S, A, B, C, D, v.v.), ký hiệu góc (như \\angle IMS), ký hiệu vuông góc (\\perp), ký hiệu song song (\\parallel), phân số (\\frac), độ (\\circ), độ dài, biểu thức số học đều PHẢI được đặt trong cặp dấu đô-la $, ví dụ: $S.ABCD$, $a\\sqrt{3}$, $60^\\circ$, $M$, $N$, $\\angle IMS = 90^\\circ$, $SA \\perp (ABCD)$. Tuyệt đối không viết thô các ký tự gạch chéo ngược \\ như \\angle hay \\frac ngoài dấu $.\n"
+        "4. Không giải thích theo phương pháp tọa độ hóa trừ khi đề bài yêu cầu. Hãy giải theo hình học thuần túy (xác định đường cao, tính diện tích đáy, dùng hệ thức lượng, tỉ số thể tích Simson, v.v.).\n"
+        "5. Dựa vào thông số hình học tính toán (như Thể tích, Chiều cao) ở phần thông tin bổ sung để đưa ra đáp số dạng biểu thức đúng đắn và chính xác nhất (ví dụ nếu thể tích là 0.1531 thì đáp án là $a^3\\sqrt{6}/16$).\n"
+        "6. Luôn kết luận đáp án cuối cùng rõ ràng ở dòng cuối cùng."
     )
-    prompt_str = SOLVER_PROMPT_TEMPLATE.format(problem_text=problem_text)
+    
+    user_content = f"Hãy giải chi tiết đề toán sau:\n{problem_text}\n"
+    if context_str:
+        user_content += f"\nThông tin bổ sung từ hệ thống để tham khảo:\n{context_str}\n"
+        
     messages = [
-        {"role": "user", "content": prompt_str}
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_content}
     ]
-    response = llm.invoke(messages)
-    return response.content
+    
+    # 3. Thử với model 70B trước (thông minh hơn nhiều), nếu bị rate limit hoặc lỗi 429 thì fallback về 8B
+    models_to_try = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+    last_exc = None
+    
+    for model_name in models_to_try:
+        try:
+            llm = ChatGroq(
+                model_name=model_name,
+                temperature=0.1,
+                groq_api_key=_resolve_groq_api_key(),
+            )
+            response = llm.invoke(messages)
+            return response.content
+        except Exception as exc:
+            last_exc = exc
+            exc_str = str(exc).lower()
+            if "rate limit" in exc_str or "429" in exc_str:
+                # Bị giới hạn băng thông, thử model tiếp theo
+                continue
+            raise exc
+            
+    # Nếu thử tất cả đều lỗi
+    raise last_exc
 
 
 # Gộp hai bước trên: OCR ảnh rồi phân tích văn bản thành GeometryInput

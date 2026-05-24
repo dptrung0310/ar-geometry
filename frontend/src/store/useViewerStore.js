@@ -1,11 +1,12 @@
 import { create } from "zustand";
 import SHAPES from "../data/shapes";
+import MOCK_GEOMETRY_PROBLEMS from "../data/mockGeometryOutput";
 
 const useViewerStore = create((set) => ({
   // ── Chế độ hiển thị ──────────────────────────────────────────
   // 'preset' : Chọn từ danh sách SHAPES có sẵn (cube, sphere...)
   // 'custom' : Render từ Geometry Engine output (JSON tọa độ tuyệt đối)
-  mode: "preset",
+  mode: "custom",
   setMode: (mode) => set({ mode }),
 
   // ── Preset mode ──────────────────────────────────────────────
@@ -20,7 +21,7 @@ const useViewerStore = create((set) => ({
     }),
 
   // ── Custom mode (Geometry Engine output) ─────────────────────
-  geometryData: null, // GeometryEngineOutput JSON
+  geometryData: MOCK_GEOMETRY_PROBLEMS[0],
   setGeometryData: (data) =>
     set({
       geometryData: data,
@@ -38,7 +39,7 @@ const useViewerStore = create((set) => ({
   wireframe: false,
   autoRotate: true,
   size: 1.0,
-  opacity: 1.0,
+  opacity: 0.35,
 
   toggleWireframe:   () => set((s) => ({ wireframe:   !s.wireframe   })),
   toggleAutoRotate:  () => set((s) => ({ autoRotate:  !s.autoRotate  })),

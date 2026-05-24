@@ -25,7 +25,7 @@ def solve_image(
     output = GeometryEngine().solve(geometry_input)
     output.ocr_text = ocr_text
     try:
-        output.solution = generate_problem_solution(ocr_text)
+        output.solution = generate_problem_solution(ocr_text, geometry_input=geometry_input, solved_output=output)
     except Exception as exc:
         output.solution = f"Không thể tự động sinh lời giải chi tiết: {exc}"
     return output

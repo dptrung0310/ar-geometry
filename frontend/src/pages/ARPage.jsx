@@ -317,7 +317,7 @@ export default function ARPage() {
                   <p style={styles.overlayDesc}>
                     {mode === "custom" && geometryData
                       ? "Hình vẽ đã dựng. Bật camera để xem dưới dạng AR hoặc di chuột/cử chỉ bên trong khung này để tương tác."
-                      : "Hãy chọn hình chuẩn hoặc tải ảnh lên để bắt đầu."}
+                      : "Hãy tải ảnh đề bài lên hoặc chọn bài toán mẫu để bắt đầu."}
                   </p>
                 </div>
               </div>
@@ -429,14 +429,14 @@ function MetaChip({ label, value, unit }) {
 
 const styles = {
   page: {
-    maxWidth: "1400px",
+    maxWidth: "1800px",
     margin: "0 auto",
     padding: "40px 24px 60px",
   },
 
   layout: {
     display: "grid",
-    gridTemplateColumns: "1.1fr 1.2fr 320px",
+    gridTemplateColumns: "1fr 2.2fr 240px",
     gap: "20px",
     alignItems: "stretch",
   },
@@ -448,7 +448,7 @@ const styles = {
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",
-    minHeight: "720px",
+    minHeight: "780px",
   },
 
   viewerHeader: {
@@ -649,65 +649,65 @@ const styles = {
   controlsCol: {
     display: "flex",
     flexDirection: "column",
-    gap: "20px",
+    gap: "12px",
   },
 
   controlsCard: {
     background: "var(--card)",
     border: "1px solid var(--border)",
-    borderRadius: "18px",
+    borderRadius: "12px",
     overflow: "hidden",
-    padding: "20px",
+    padding: "14px",
   },
 
   helpCard: {
     background: "var(--card)",
     border: "1px solid var(--border)",
-    borderRadius: "18px",
-    padding: "20px",
+    borderRadius: "12px",
+    padding: "14px",
   },
 
   panelTitle: {
-    fontSize: "11px",
+    fontSize: "10px",
     color: "var(--text3)",
     textTransform: "uppercase",
-    letterSpacing: "1px",
-    marginBottom: "18px",
+    letterSpacing: "0.8px",
+    marginBottom: "10px",
     fontFamily: "'Space Mono', monospace",
   },
 
   gestureList: {
     display: "flex",
     flexDirection: "column",
-    gap: "14px",
+    gap: "8px",
   },
 
   gestureRow: {
     display: "flex",
-    gap: "12px",
+    gap: "8px",
     alignItems: "center",
     background: "var(--bg3)",
     border: "1px solid var(--border)",
-    borderRadius: "12px",
-    padding: "12px",
+    borderRadius: "8px",
+    padding: "8px",
   },
 
   gestureEmoji: {
-    fontSize: "24px",
-    width: "42px",
+    fontSize: "18px",
+    width: "30px",
     textAlign: "center",
   },
 
   gestureTitle: {
     color: "var(--text)",
-    fontSize: "13px",
+    fontSize: "12px",
     fontWeight: 500,
   },
 
   gestureDesc: {
     color: "var(--text3)",
-    fontSize: "12px",
-    marginTop: "3px",
+    fontSize: "11px",
+    marginTop: "1px",
   },
 
   solutionCard: {
@@ -717,7 +717,7 @@ const styles = {
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",
-    minHeight: "720px",
+    minHeight: "780px",
   },
 
   solutionHeader: {
@@ -742,7 +742,7 @@ const styles = {
     padding: "20px",
     flex: 1,
     overflowY: "auto",
-    maxHeight: "650px",
+    maxHeight: "710px",
     display: "flex",
     flexDirection: "column",
     gap: "18px",

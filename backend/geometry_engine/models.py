@@ -3,7 +3,7 @@ Pydantic models for GeometryEngine input and output.
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Any
 from pydantic import BaseModel, Field
 
 
@@ -114,3 +114,6 @@ class GeometryOutput(BaseModel):
 
     solution: Optional[str] = None
     """Lời giải toán học chi tiết dạng Markdown + LaTeX."""
+
+    meta: Optional[dict[str, Any]] = None
+    """Thông số tính toán như thể tích, diện tích, chiều cao."""
