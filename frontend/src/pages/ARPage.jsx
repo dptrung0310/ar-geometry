@@ -83,6 +83,8 @@ export default function ARPage() {
     showConstraints,
     isLoading,
     apiError,
+    arAnchored,
+    toggleArAnchored,
   } = useViewerStore();
 
   const {
@@ -335,18 +337,43 @@ export default function ARPage() {
             {/* ── WebXR HUD Overlay (chỉ hiện khi đang chạy WebXR) ── */}
             {xrSessionActive && (
               <div style={styles.xrHud}>
-                <button
-                  style={styles.xrExitBtn}
-                  className="no-gesture"
-                  onClick={toggleXR}
-                >
-                  ✕ Thoát AR
-                </button>
+                <div style={styles.xrHudTop}>
+                  <button
+                    style={
+                      arAnchored
+                        ? styles.xrAnchorBtnActive
+                        : styles.xrAnchorBtnInactive
+                    }
+                    className="no-gesture"
+                    onClick={toggleArAnchored}
+                  >
+                    {arAnchored ? "🔒 Đang Ghim hình" : "🔓 Đang di chuyển"}
+                  </button>
+                  <button
+                    style={styles.xrExitBtn}
+                    className="no-gesture"
+                    onClick={toggleXR}
+                  >
+                    ✕ Thoát AR
+                  </button>
+                </div>
+
                 <div style={styles.xrInstructions} className="no-gesture">
                   <div style={styles.xrInstructionsTitle}>Hướng dẫn tương tác:</div>
                   <div>• Quét camera quanh sàn/bàn để tìm bề mặt.</div>
-                  <div>• Chạm điểm ngắm màu xanh để đặt hình.</div>
-                  <div>• Vuốt 1 ngón tay để xoay, 2 ngón tay để thu phóng.</div>
+                  {arAnchored ? (
+                    <>
+                      <div>• Hình đã được ghim vị trí cố định.</div>
+                      <div>• Vuốt 1 ngón để <strong>xoay ngang</strong>, 2 ngón để thu phóng.</div>
+                      <div>• Nhấn nút 🔓 ở trên để gỡ ghim di chuyển hình.</div>
+                    </>
+                  ) : (
+                    <>
+                      <div>• Chạm điểm ngắm màu xanh để đặt hình nhanh.</div>
+                      <div>• Vuốt 1 ngón để <strong>kéo và di chuyển</strong> hình trên mặt phẳng.</div>
+                      <div>• Nhấn nút 🔒 ở trên để ghim cố định hình.</div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -953,6 +980,44 @@ const styles = {
     flexDirection: "column",
     justifyContent: "space-between",
     padding: "20px",
+  },
+
+  xrHudTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    pointerEvents: "none",
+  },
+
+  xrAnchorBtnActive: {
+    padding: "10px 18px",
+    borderRadius: "10px",
+    background: "rgba(16, 255, 160, 0.9)",
+    border: "1px solid rgba(255, 255, 255, 0.25)",
+    color: "#000",
+    fontSize: "14px",
+    fontWeight: 600,
+    cursor: "pointer",
+    pointerEvents: "auto",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+    backdropFilter: "blur(4px)",
+    transition: "all 0.2s",
+  },
+
+  xrAnchorBtnInactive: {
+    padding: "10px 18px",
+    borderRadius: "10px",
+    background: "rgba(255, 193, 7, 0.9)",
+    border: "1px solid rgba(255, 255, 255, 0.25)",
+    color: "#000",
+    fontSize: "14px",
+    fontWeight: 600,
+    cursor: "pointer",
+    pointerEvents: "auto",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+    backdropFilter: "blur(4px)",
+    transition: "all 0.2s",
   },
 
   xrExitBtn: {

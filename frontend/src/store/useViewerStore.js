@@ -57,6 +57,10 @@ const useViewerStore = create((set) => ({
 
   setSize:    (v) => set({ size:    v }),
   setOpacity: (v) => set({ opacity: v }),
+
+  // ── WebXR Anchoring ───────────────────────────────────────────
+  arAnchored: true, // mặc định ghim
+  toggleArAnchored: () => set((s) => ({ arAnchored: !s.arAnchored })),
 }));
 
 export default useViewerStore;

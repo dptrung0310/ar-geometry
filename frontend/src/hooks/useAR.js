@@ -60,6 +60,12 @@ export function useAR(
   const SCALE_MIN         = 0.3;
   const SCALE_MAX         = 6.0;
 
+  const arAnchored = useViewerStore((state) => state.arAnchored);
+  const arAnchoredRef = useRef(arAnchored);
+  useEffect(() => {
+    arAnchoredRef.current = arAnchored;
+  }, [arAnchored]);
+
   const [cameraActive, setCameraActive] = useState(false);
   const [error, setError] = useState(null);
   const [handDetected, setHandDetected] = useState(false);
@@ -213,13 +219,39 @@ export function useAR(
           isDraggingRef.current = true;
         }
 
-        // Xoay hình 3D
-        target.rotation.y += dx * 0.007;
-        target.rotation.x += dy * 0.007;
+        if (xrSessionActive && !arAnchoredRef.current) {
+          // Kéo di chuyển hình dọc theo mặt phẳng nằm ngang dựa vào hướng camera
+          const tempCamQ = new THREE.Quaternion();
+          cameraRef.current.getWorldQuaternion(tempCamQ);
 
-        const edges = customGroupRef.current ? null : edgesRef.current;
-        if (edges) {
-          edges.rotation.copy(target.rotation);
+          const right = new THREE.Vector3(1, 0, 0).applyQuaternion(tempCamQ);
+          right.y = 0;
+          right.normalize();
+
+          const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(tempCamQ);
+          forward.y = 0;
+          forward.normalize();
+
+          // Dịch chuyển hình dọc theo mặt phẳng (độ nhạy 1.5mm trên mỗi pixel vuốt chạm)
+          const moveScale = 0.0015;
+          target.position.addScaledVector(right, dx * moveScale);
+          target.position.addScaledVector(forward, -dy * moveScale);
+
+          const edges = customGroupRef.current ? null : edgesRef.current;
+          if (edges) {
+            edges.position.copy(target.position);
+          }
+        } else {
+          // Xoay hình 3D (chỉ xoay ngang quanh Y trong WebXR để giữ cố định trên mặt phẳng)
+          target.rotation.y += dx * 0.007;
+          if (!xrSessionActive) {
+            target.rotation.x += dy * 0.007;
+          }
+
+          const edges = customGroupRef.current ? null : edgesRef.current;
+          if (edges) {
+            edges.rotation.copy(target.rotation);
+          }
         }
 
         touchStartRef.current = { x: curX, y: curY };
@@ -335,6 +367,11 @@ export function useAR(
       const edges = customGroupRef.current ? null : edgesRef.current;
 
       if (reticle && reticle.visible && obj) {
+        // Nếu đã hiện và đang Ghim hình (arAnchored), bỏ qua việc đặt lại vị trí bằng cách chạm màn hình
+        if (obj.visible && arAnchoredRef.current) {
+          return;
+        }
+
         // Đặt vật thể vào tọa độ quét được của Reticle
         obj.position.setFromMatrixPosition(reticle.matrix);
 
