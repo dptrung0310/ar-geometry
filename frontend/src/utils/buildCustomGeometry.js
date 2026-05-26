@@ -318,6 +318,55 @@ export function buildConstraints(geometryData, scaleFactor = 1) {
   return group;
 }
 
+export function build3DSpriteLabels(geometryData, scaleFactor = 1) {
+  const verts = normalizeVertices(geometryData.vertices);
+  const group = new THREE.Group();
+  group.name = "spriteLabels";
+
+  for (const [name, pos] of Object.entries(verts)) {
+    const isHighlighted = geometryData.highlights?.includes(name);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, 128, 128);
+
+    if (isHighlighted) {
+      ctx.fillStyle = "rgba(255, 68, 68, 0.85)";
+      ctx.beginPath();
+      ctx.arc(64, 64, 35, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+    } else {
+      ctx.fillStyle = "#00e5ff"; // neon cyan
+    }
+
+    ctx.font = "bold 64px system-ui, -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(name, 64, 64);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const mat = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+    });
+
+    const sprite = new THREE.Sprite(mat);
+    sprite.position.set(
+      pos[0] * scaleFactor,
+      pos[1] * scaleFactor + 0.12 * scaleFactor, // offset slightly upward
+      pos[2] * scaleFactor
+    );
+    sprite.scale.set(0.24 * scaleFactor, 0.24 * scaleFactor, 1);
+    group.add(sprite);
+  }
+
+  return group;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // buildCustomGeometry: Entry point chính — trả về group THREE.Group
 // chứa mesh + edges (nét liền & đứt) + points + constraints
@@ -328,6 +377,7 @@ export function buildCustomGeometry(geometryData, options = {}) {
     scaleFactor  = 1,
     showPoints   = true,
     showConstraints = true,
+    show3DLabels = false,
   } = options;
 
   const group = new THREE.Group();
@@ -348,6 +398,11 @@ export function buildCustomGeometry(geometryData, options = {}) {
   if (showConstraints) {
     const cGroup = buildConstraints(geometryData, scaleFactor);
     if (cGroup) group.add(cGroup);
+  }
+
+  if (show3DLabels) {
+    const labels = build3DSpriteLabels(geometryData, scaleFactor);
+    group.add(labels);
   }
 
   return group;

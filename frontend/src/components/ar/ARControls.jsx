@@ -1,9 +1,15 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import MOCK_GEOMETRY_PROBLEMS from "../../data/mockGeometryOutput";
 import useViewerStore from "../../store/useViewerStore";
 import { analyzeImageProblem } from "../../api/geometryApi";
 
-export function ARControls({ onToggleCamera, cameraActive, error: cameraError }) {
+export function ARControls({
+  onToggleCamera,
+  cameraActive,
+  onToggleXR,
+  xrSessionActive,
+  error: cameraError
+}) {
   const {
     currentShape,
     setShape,
@@ -25,10 +31,21 @@ export function ARControls({ onToggleCamera, cameraActive, error: cameraError })
     setIsLoading,
     apiError,
     setApiError,
+    arMode,
+    setArMode,
   } = useViewerStore();
 
   const fileInputRef = useRef(null);
   const [selectedProblemId, setSelectedProblemId] = useState("");
+  const [xrSupported, setXrSupported] = useState(false);
+
+  useEffect(() => {
+    if (navigator.xr) {
+      navigator.xr.isSessionSupported("immersive-ar").then((supported) => {
+        setXrSupported(supported);
+      });
+    }
+  }, []);
 
   const handleLoadProblem = (id) => {
     if (!id) return;
@@ -59,14 +76,61 @@ export function ARControls({ onToggleCamera, cameraActive, error: cameraError })
 
   return (
     <div className="ar-controls">
-      {/* ── CAMERA ──────────────────────────────────────────────── */}
+      {/* ── CHẾ ĐỘ AR MODE SELECTOR ────────────────────────────── */}
       <div className="section">
-        <button
-          className={`camera-btn ${cameraActive ? "active" : ""}`}
-          onClick={onToggleCamera}
-        >
-          <span>{cameraActive ? "🟢 Camera Active" : "📷 Bật Camera"}</span>
-        </button>
+        <div className="section-title">Chế độ AR</div>
+        <div className="toggle-buttons">
+          <button
+            className={`toggle-btn ${arMode === "gesture" ? "active" : ""}`}
+            onClick={() => {
+              if (xrSessionActive) onToggleXR();
+              setArMode("gesture");
+            }}
+          >
+            Camera trước (Cử chỉ)
+          </button>
+          <button
+            className={`toggle-btn ${arMode === "webxr" ? "active" : ""}`}
+            onClick={() => {
+              if (cameraActive) onToggleCamera();
+              setArMode("webxr");
+            }}
+          >
+            Camera sau (WebXR)
+          </button>
+        </div>
+      </div>
+
+      {/* ── CAMERA / WEBXR TRIGGER BUTTON ───────────────────────── */}
+      <div className="section">
+        {arMode === "gesture" ? (
+          <button
+            className={`camera-btn ${cameraActive ? "active" : ""}`}
+            onClick={onToggleCamera}
+          >
+            <span>{cameraActive ? "🟢 Tắt Camera trước" : "📷 Bật Camera trước"}</span>
+          </button>
+        ) : (
+          <button
+            className={`camera-btn ${xrSessionActive ? "active" : ""}`}
+            onClick={onToggleXR}
+            disabled={!xrSupported}
+            style={!xrSupported ? { opacity: 0.5, cursor: "not-allowed" } : {}}
+          >
+            <span>
+              {xrSessionActive
+                ? "🟢 Đang chạy WebXR AR..."
+                : xrSupported
+                ? "🥽 Bật quét sàn WebXR"
+                : "🚫 WebXR không hỗ trợ"}
+            </span>
+          </button>
+        )}
+        {!xrSupported && arMode === "webxr" && (
+          <div className="error-message" style={{ fontSize: "10px", marginTop: "2px" }}>
+            * Chế độ quét sàn (WebXR) chỉ chạy trên Android Chrome có Google Play Services cho AR.
+          </div>
+        )}
         {cameraError && <div className="error-message">{cameraError}</div>}
       </div>
 

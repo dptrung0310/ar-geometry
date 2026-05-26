@@ -9,6 +9,10 @@ const useViewerStore = create((set) => ({
   mode: "custom",
   setMode: (mode) => set({ mode }),
 
+  // arMode: 'gesture' (Camera trước + Cử chỉ tay) | 'webxr' (Camera sau + WebXR quét sàn)
+  arMode: "gesture",
+  setArMode: (arMode) => set({ arMode }),
+
   // ── Preset mode ──────────────────────────────────────────────
   currentShape: SHAPES[0],
   setShape: (shape) =>

@@ -85,7 +85,16 @@ export default function ARPage() {
     apiError,
   } = useViewerStore();
 
-  const { cameraActive, toggleCamera, error, videoRef, cameraRef, customGroupRef } = useAR(
+  const {
+    cameraActive,
+    toggleCamera,
+    xrSessionActive,
+    toggleXR,
+    error,
+    videoRef,
+    cameraRef,
+    customGroupRef,
+  } = useAR(
     canvasRef,
     currentShape,
     { size, opacity, wireframe, autoRotate, showConstraints },
@@ -275,7 +284,7 @@ export default function ARPage() {
             <canvas ref={canvasRef} style={styles.canvas} />
 
             {/* ── HTML Label Overlay (vertex names + edge lengths) ── */}
-            {mode === "custom" && (
+            {mode === "custom" && !xrSessionActive && (
               <div ref={labelContainerRef} style={styles.labelContainer}>
                 {/* Vertex labels */}
                 {labelData.vertexLabels.map((lbl) => (
@@ -309,7 +318,7 @@ export default function ARPage() {
             )}
 
             {/* ── Placeholder khi camera chưa bật ──────────────── */}
-            {!cameraActive && (
+            {!cameraActive && !xrSessionActive && (
               <div style={styles.overlay}>
                 <div style={styles.overlayBox}>
                   <div style={styles.overlayIcon}>👁️</div>
@@ -319,6 +328,25 @@ export default function ARPage() {
                       ? "Hình vẽ đã dựng. Bật camera để xem dưới dạng AR hoặc di chuột/cử chỉ bên trong khung này để tương tác."
                       : "Hãy tải ảnh đề bài lên hoặc chọn bài toán mẫu để bắt đầu."}
                   </p>
+                </div>
+              </div>
+            )}
+
+            {/* ── WebXR HUD Overlay (chỉ hiện khi đang chạy WebXR) ── */}
+            {xrSessionActive && (
+              <div style={styles.xrHud}>
+                <button
+                  style={styles.xrExitBtn}
+                  className="no-gesture"
+                  onClick={toggleXR}
+                >
+                  ✕ Thoát AR
+                </button>
+                <div style={styles.xrInstructions} className="no-gesture">
+                  <div style={styles.xrInstructionsTitle}>Hướng dẫn tương tác:</div>
+                  <div>• Quét camera quanh sàn/bàn để tìm bề mặt.</div>
+                  <div>• Chạm điểm ngắm màu xanh để đặt hình.</div>
+                  <div>• Vuốt 1 ngón tay để xoay, 2 ngón tay để thu phóng.</div>
                 </div>
               </div>
             )}
@@ -366,6 +394,8 @@ export default function ARPage() {
             <ARControls
               onToggleCamera={toggleCamera}
               cameraActive={cameraActive}
+              onToggleXR={toggleXR}
+              xrSessionActive={xrSessionActive}
               error={error}
             />
           </div>
@@ -912,5 +942,56 @@ const styles = {
     background: "#50fa7b",
     animation: "blink 1s step-end infinite",
     marginTop: "4px",
+  },
+
+  xrHud: {
+    position: "absolute",
+    inset: 0,
+    zIndex: 10,
+    pointerEvents: "none",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    padding: "20px",
+  },
+
+  xrExitBtn: {
+    alignSelf: "flex-end",
+    padding: "10px 18px",
+    borderRadius: "10px",
+    background: "rgba(220, 53, 69, 0.85)",
+    border: "1px solid rgba(255, 255, 255, 0.2)",
+    color: "#fff",
+    fontSize: "14px",
+    fontWeight: 600,
+    cursor: "pointer",
+    pointerEvents: "auto",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+    backdropFilter: "blur(4px)",
+    transition: "background 0.2s",
+  },
+
+  xrInstructions: {
+    alignSelf: "center",
+    background: "rgba(0, 0, 0, 0.75)",
+    border: "1px solid rgba(0, 229, 255, 0.25)",
+    borderRadius: "12px",
+    padding: "12px 16px",
+    color: "#fff",
+    fontSize: "12px",
+    lineHeight: "1.6",
+    maxWidth: "340px",
+    pointerEvents: "auto",
+    boxShadow: "0 4px 15px rgba(0,0,0,0.6)",
+    backdropFilter: "blur(4px)",
+  },
+
+  xrInstructionsTitle: {
+    fontWeight: 700,
+    color: "var(--cyan)",
+    marginBottom: "4px",
+    textTransform: "uppercase",
+    fontSize: "10px",
+    letterSpacing: "0.5px",
   },
 };
