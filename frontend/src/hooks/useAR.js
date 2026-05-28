@@ -67,12 +67,16 @@ export function useAR(
   const prevDistRef      = useRef(null);   // khoảng cách 2 ngón trỏ frame trước
   // Trạng thái tay hiện tại (dùng ref để không trigger re-render)
   const handActiveRef    = useRef(false);
+  // Target refs và velocity cho di chuyển / phóng to
+  const dragVelocityRef   = useRef({ x: 0, y: 0 });
+  const targetScaleRef    = useRef(1.0);
 
   // ── Constants ─────────────────────────────────────────────────────────────
   const ROT_SENSITIVITY   = 3.0;
   const ROT_DAMPING       = 0.80;
   const ROT_DEADZONE      = 0.003;
-  const MOVE_SCALE        = 4.5;   // hệ số nhạy kéo
+  const MOVE_SCALE        = 11.0;  // Tăng để kéo nhanh/dài hơn theo ý user
+  const DRAG_DAMPING      = 0.75;  // Hệ số tắt dần cho kéo (0.75 phản hồi cực nhạy, dừng tốt)
   const SCALE_SCALE       = 3.5;   // hệ số nhạy zoom
   const SCALE_DEADZONE    = 0.003;
   const SCALE_MIN         = 0.3;
@@ -385,6 +389,30 @@ export function useAR(
         rv.y *= ROT_DAMPING; if (Math.abs(rv.y) < 0.0001) rv.y = 0;
       }
 
+      // ── Cập nhật di chuyển bằng Velocity (60 FPS) ──
+      if (obj && !xrSessionActive) {
+        const dv = dragVelocityRef.current;
+        if (Math.abs(dv.x) > 0.0001 || Math.abs(dv.y) > 0.0001) {
+          obj.position.x += dv.x;
+          obj.position.y += dv.y;
+          if (edges) edges.position.copy(obj.position);
+          
+          dv.x *= DRAG_DAMPING; if (Math.abs(dv.x) < 0.0001) dv.x = 0;
+          dv.y *= DRAG_DAMPING; if (Math.abs(dv.y) < 0.0001) dv.y = 0;
+        }
+      }
+
+      // ── Lerp mượt 60 FPS: Scale (Phóng to/Thu nhỏ) ──
+      if (obj) {
+        const LERP_SCALE = 0.45;
+        const scaleDiff = targetScaleRef.current - obj.scale.x;
+        if (Math.abs(scaleDiff) > 0.001) {
+          const newScale = obj.scale.x + scaleDiff * LERP_SCALE;
+          obj.scale.setScalar(newScale);
+          if (edges) edges.scale.copy(obj.scale);
+        }
+      }
+
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
         rendererRef.current.render(sceneRef.current, cameraRef.current);
       }
@@ -407,6 +435,11 @@ export function useAR(
         prevPinchRef.current = null;
         prevDistRef.current  = null;
         rotVelocityRef.current = { x: 0, y: 0 };
+        dragVelocityRef.current = { x: 0, y: 0 };
+        const obj = customGroupRef.current || meshRef.current;
+        if (obj) {
+          targetScaleRef.current = obj.scale.x;
+        }
       }
       return;
     }
@@ -438,15 +471,27 @@ export function useAR(
         if (prevPinchRef.current !== null) {
           const dx =  wrist.x - prevPinchRef.current.x;
           const dy = -wrist.y + prevPinchRef.current.y;
-          target.position.x += dx * MOVE_SCALE;
-          target.position.y += dy * MOVE_SCALE;
-          const edges = customGroupRef.current ? null : edgesRef.current;
-          if (edges) edges.position.copy(target.position);
+          
+          const dragSensitivity = MOVE_SCALE * (1.0 - DRAG_DAMPING);
+          dragVelocityRef.current.x += dx * dragSensitivity;
+          dragVelocityRef.current.y += dy * dragSensitivity;
+          
+          // Giới hạn vận tốc tối đa để tránh biến mất đột ngột khi tay di chuyển quá nhanh
+          const MAX_DRAG_VEL = 0.5;
+          dragVelocityRef.current.x = Math.max(-MAX_DRAG_VEL, Math.min(MAX_DRAG_VEL, dragVelocityRef.current.x));
+          dragVelocityRef.current.y = Math.max(-MAX_DRAG_VEL, Math.min(MAX_DRAG_VEL, dragVelocityRef.current.y));
+        } else {
+          // Frame đầu tiên của pinch: reset vận tốc kéo về 0 để tránh giật từ cử chỉ cũ
+          dragVelocityRef.current = { x: 0, y: 0 };
         }
         prevPinchRef.current = { x: wrist.x, y: wrist.y };
 
       } else {
-        prevPinchRef.current = null; // Reset pinch tracking
+        if (prevPinchRef.current !== null) {
+          // Vừa nhả pinch: triệt tiêu vận tốc kéo để đứng yên tại chỗ
+          dragVelocityRef.current = { x: 0, y: 0 };
+        }
+        prevPinchRef.current = null;
 
         // ── Xoay bằng lòng bàn tay ──
         const openPalm = isOpenPalm(hand);
@@ -475,6 +520,7 @@ export function useAR(
       // Reset trạng thái 1-tay
       prevPinchRef.current = null;
       prevWristRef.current = null;
+      dragVelocityRef.current = { x: 0, y: 0 };
 
       const hand1 = landmarks[0];
       const hand2 = landmarks[1];
@@ -491,15 +537,21 @@ export function useAR(
         if (prevDistRef.current !== null) {
           const delta = dist - prevDistRef.current;
           if (Math.abs(delta) > SCALE_DEADZONE) {
-            const newScale = Math.max(SCALE_MIN, Math.min(SCALE_MAX,
-              target.scale.x + delta * SCALE_SCALE));
-            target.scale.setScalar(newScale);
-            const edges = customGroupRef.current ? null : edgesRef.current;
-            if (edges) edges.scale.copy(target.scale);
+            // Ghi vào target ref → animate loop sẽ lerp mượt 60 FPS
+            const newTarget = Math.max(SCALE_MIN, Math.min(SCALE_MAX,
+              targetScaleRef.current + delta * SCALE_SCALE));
+            targetScaleRef.current = newTarget;
           }
+        } else {
+          // Frame đầu tiên của zoom: sync target với scale hiện tại để không giật
+          targetScaleRef.current = target.scale.x;
         }
         prevDistRef.current = dist;
       } else {
+        if (prevDistRef.current !== null) {
+          // Vừa nhả pinch: sync target để dừng lerp drift
+          targetScaleRef.current = (customGroupRef.current || meshRef.current)?.scale.x ?? targetScaleRef.current;
+        }
         // Một trong 2 tay nhả pinch → khóa tỷ lệ hiện tại
         prevDistRef.current = null;
       }
