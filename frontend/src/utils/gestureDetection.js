@@ -3,7 +3,7 @@ import { getDistance } from "./gestures";
 export function isPinching(hand) {
   const thumbTip = hand[4];
   const indexTip = hand[8];
-  return getDistance(thumbTip, indexTip) < 0.08;
+  return getDistance(thumbTip, indexTip) < 0.095;
 }
 
 export function isOpenPalm(hand) {

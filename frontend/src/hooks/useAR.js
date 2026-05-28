@@ -15,7 +15,7 @@ function isPinching(hand) {
   const indexTip = hand[8];
   const dx = thumbTip.x - indexTip.x;
   const dy = thumbTip.y - indexTip.y;
-  return Math.sqrt(dx * dx + dy * dy) < 0.08;
+  return Math.sqrt(dx * dx + dy * dy) < 0.095;
 }
 
 // ── Phát hiện lòng bàn tay mở (Open Palm) ───────────────────────────────────
@@ -685,110 +685,111 @@ export function useAR(
     }
 
     const getTarget = () => customGroupRef.current || meshRef.current;
-    const numHands  = landmarks.length;
+    const target = getTarget();
+
+    const activeHands = landmarks.map(hand => ({
+      landmarks: hand,
+      isPinching: isPinching(hand),
+      isOpenPalm: isOpenPalm(hand),
+    }));
+
+    const pinchingHands = activeHands.filter(h => h.isPinching);
+    const openPalmHands = activeHands.filter(h => h.isOpenPalm);
 
     // ════════════════════════════════════════════════
-    // 1 TAY: Pinch → Kéo di chuyển | Open Palm → Xoay
+    // Trạng thái 1: PHÓNG TO / THU NHỎ (Có ít nhất 2 tay pinch)
     // ════════════════════════════════════════════════
-    if (numHands === 1) {
-      // Reset trạng thái 2-tay
-      prevDistRef.current = null;
-
-      const hand   = landmarks[0];
-      const wrist  = hand[0];
-      const pinch  = isPinching(hand);
-      const target = getTarget();
-
-      if (pinch && target) {
-        // ── Kéo di chuyển ──
-        prevWristRef.current = null; // Reset palm tracking
-        if (prevPinchRef.current !== null) {
-          const dx =  wrist.x - prevPinchRef.current.x;
-          const dy = -wrist.y + prevPinchRef.current.y;
-          
-          const dragSensitivity = MOVE_SCALE * (1.0 - DRAG_DAMPING);
-          dragVelocityRef.current.x += dx * dragSensitivity;
-          dragVelocityRef.current.y += dy * dragSensitivity;
-          
-          // Giới hạn vận tốc tối đa để tránh biến mất đột ngột khi tay di chuyển quá nhanh
-          const MAX_DRAG_VEL = 0.5;
-          dragVelocityRef.current.x = Math.max(-MAX_DRAG_VEL, Math.min(MAX_DRAG_VEL, dragVelocityRef.current.x));
-          dragVelocityRef.current.y = Math.max(-MAX_DRAG_VEL, Math.min(MAX_DRAG_VEL, dragVelocityRef.current.y));
-        } else {
-          // Frame đầu tiên của pinch: reset vận tốc kéo về 0 để tránh giật từ cử chỉ cũ
-          dragVelocityRef.current = { x: 0, y: 0 };
-        }
-        prevPinchRef.current = { x: wrist.x, y: wrist.y };
-
-      } else {
-        if (prevPinchRef.current !== null) {
-          // Vừa nhả pinch: triệt tiêu vận tốc kéo để đứng yên tại chỗ
-          dragVelocityRef.current = { x: 0, y: 0 };
-        }
-        prevPinchRef.current = null;
-
-        // ── Xoay bằng lòng bàn tay ──
-        const openPalm = isOpenPalm(hand);
-        if (openPalm && target) {
-          if (prevWristRef.current !== null) {
-            const dx = wrist.x - prevWristRef.current.x;
-            const dy = wrist.y - prevWristRef.current.y;
-            if (Math.abs(dx) > ROT_DEADZONE || Math.abs(dy) > ROT_DEADZONE) {
-              rotVelocityRef.current.y += dx * ROT_SENSITIVITY;
-              rotVelocityRef.current.x += dy * ROT_SENSITIVITY;
-              rotVelocityRef.current.y  = Math.max(-0.15, Math.min(0.15, rotVelocityRef.current.y));
-              rotVelocityRef.current.x  = Math.max(-0.15, Math.min(0.15, rotVelocityRef.current.x));
-            }
-          }
-          prevWristRef.current = { x: wrist.x, y: wrist.y };
-        } else {
-          prevWristRef.current = null;
-        }
-      }
-    }
-
-    // ════════════════════════════════════════════════
-    // 2 TAY: Cả 2 Pinch → Phóng to / Thu nhỏ
-    // ════════════════════════════════════════════════
-    if (numHands === 2) {
-      // Reset trạng thái 1-tay
+    if (pinchingHands.length >= 2 && target) {
+      // Reset 1-tay drag & rotate
       prevPinchRef.current = null;
       prevWristRef.current = null;
       dragVelocityRef.current = { x: 0, y: 0 };
 
-      const hand1 = landmarks[0];
-      const hand2 = landmarks[1];
-      const p1    = isPinching(hand1);
-      const p2    = isPinching(hand2);
-      const target = getTarget();
+      const hand1 = pinchingHands[0].landmarks;
+      const hand2 = pinchingHands[1].landmarks;
 
-      if (p1 && p2 && target) {
-        // Dùng khoảng cách giữa 2 ngón trỏ (index tip = landmark 8)
-        const tip1 = hand1[8];
-        const tip2 = hand2[8];
-        const dist = getDistance(tip1, tip2);
+      // Dùng khoảng cách giữa 2 ngón trỏ (index tip = landmark 8)
+      const tip1 = hand1[8];
+      const tip2 = hand2[8];
+      const dist = getDistance(tip1, tip2);
 
-        if (prevDistRef.current !== null) {
-          const delta = dist - prevDistRef.current;
-          if (Math.abs(delta) > SCALE_DEADZONE) {
-            // Ghi vào target ref → animate loop sẽ lerp mượt 60 FPS
-            const newTarget = Math.max(SCALE_MIN, Math.min(SCALE_MAX,
-              targetScaleRef.current + delta * SCALE_SCALE));
-            targetScaleRef.current = newTarget;
-          }
-        } else {
-          // Frame đầu tiên của zoom: sync target với scale hiện tại để không giật
-          targetScaleRef.current = target.scale.x;
+      if (prevDistRef.current !== null) {
+        const delta = dist - prevDistRef.current;
+        if (Math.abs(delta) > SCALE_DEADZONE) {
+          const newTarget = Math.max(SCALE_MIN, Math.min(SCALE_MAX,
+            targetScaleRef.current + delta * SCALE_SCALE));
+          targetScaleRef.current = newTarget;
         }
-        prevDistRef.current = dist;
       } else {
-        if (prevDistRef.current !== null) {
-          // Vừa nhả pinch: sync target để dừng lerp drift
-          targetScaleRef.current = (customGroupRef.current || meshRef.current)?.scale.x ?? targetScaleRef.current;
-        }
-        // Một trong 2 tay nhả pinch → khóa tỷ lệ hiện tại
-        prevDistRef.current = null;
+        targetScaleRef.current = target.scale.x;
       }
+      prevDistRef.current = dist;
+
+    // ════════════════════════════════════════════════
+    // Trạng thái 2: DI CHUYỂN (Chỉ có duy nhất 1 tay pinch)
+    // ════════════════════════════════════════════════
+    } else if (pinchingHands.length === 1 && target) {
+      // Reset 2-tay zoom & rotate
+      prevDistRef.current = null;
+      prevWristRef.current = null;
+
+      const hand  = pinchingHands[0].landmarks;
+      const wrist = hand[0];
+
+      if (prevPinchRef.current !== null) {
+        const dx =  wrist.x - prevPinchRef.current.x;
+        const dy = -wrist.y + prevPinchRef.current.y;
+        
+        const dragSensitivity = MOVE_SCALE * (1.0 - DRAG_DAMPING);
+        dragVelocityRef.current.x += dx * dragSensitivity;
+        dragVelocityRef.current.y += dy * dragSensitivity;
+        
+        const MAX_DRAG_VEL = 0.5;
+        dragVelocityRef.current.x = Math.max(-MAX_DRAG_VEL, Math.min(MAX_DRAG_VEL, dragVelocityRef.current.x));
+        dragVelocityRef.current.y = Math.max(-MAX_DRAG_VEL, Math.min(MAX_DRAG_VEL, dragVelocityRef.current.y));
+      } else {
+        dragVelocityRef.current = { x: 0, y: 0 };
+      }
+      prevPinchRef.current = { x: wrist.x, y: wrist.y };
+
+    // ════════════════════════════════════════════════
+    // Trạng thái 3: XOAY (Không có tay pinch, có ít nhất 1 tay mở)
+    // ════════════════════════════════════════════════
+    } else if (pinchingHands.length === 0 && openPalmHands.length >= 1 && target) {
+      // Reset 1-tay drag & 2-tay zoom
+      prevPinchRef.current = null;
+      prevDistRef.current = null;
+      dragVelocityRef.current = { x: 0, y: 0 };
+
+      const hand  = openPalmHands[0].landmarks;
+      const wrist = hand[0];
+
+      if (prevWristRef.current !== null) {
+        const dx = wrist.x - prevWristRef.current.x;
+        const dy = wrist.y - prevWristRef.current.y;
+        if (Math.abs(dx) > ROT_DEADZONE || Math.abs(dy) > ROT_DEADZONE) {
+          rotVelocityRef.current.y += dx * ROT_SENSITIVITY;
+          rotVelocityRef.current.x += dy * ROT_SENSITIVITY;
+          rotVelocityRef.current.y  = Math.max(-0.15, Math.min(0.15, rotVelocityRef.current.y));
+          rotVelocityRef.current.x  = Math.max(-0.15, Math.min(0.15, rotVelocityRef.current.x));
+        }
+      }
+      prevWristRef.current = { x: wrist.x, y: wrist.y };
+
+    // ════════════════════════════════════════════════
+    // Trạng thái 4: KHÔNG CÓ CỬ CHỈ HỢP LỆ (Không pinch, không open palm)
+    // ════════════════════════════════════════════════
+    } else {
+      if (prevDistRef.current !== null && target) {
+        targetScaleRef.current = target.scale.x;
+      }
+      if (prevPinchRef.current !== null) {
+        dragVelocityRef.current = { x: 0, y: 0 };
+      }
+      
+      prevPinchRef.current = null;
+      prevDistRef.current  = null;
+      prevWristRef.current = null;
     }
   });
 
