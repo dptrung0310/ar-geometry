@@ -62,23 +62,33 @@ const autoWrapRawLaTeX = (text) => {
 export default function MathRenderer({ text }) {
   const containerRef = useRef(null);
 
-  const renderMathText = (rawText) => {
+  const formatMarkdownToHTML = (rawText) => {
     if (!rawText) return "";
 
+    // Escape basic HTML tags to prevent injections but keep LaTeX backslashes intact
+    let html = rawText
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+    const mathHTMLs = [];
+
     // Auto-wrap raw LaTeX commands that don't have $ symbols
-    const preprocessed = autoWrapRawLaTeX(rawText);
+    const preprocessed = autoWrapRawLaTeX(html);
 
     // Split by $$ (display math) first
     const displayParts = preprocessed.split("$$");
-    return displayParts
+    html = displayParts
       .map((displayPart, idx) => {
         if (idx % 2 === 1) {
           // Inside $$...$$
           try {
-            return `<div class="katex-display-wrapper" style="margin: 12px 0; overflow-x: auto; text-align: center;">${katex.renderToString(
+            const rendered = `<div class="katex-display-wrapper" style="margin: 12px 0; overflow-x: auto; text-align: center;">${katex.renderToString(
               displayPart,
               { displayMode: true, throwOnError: false }
             )}</div>`;
+            mathHTMLs.push(rendered);
+            return `___MATH_RENDER_PLACEHOLDER_${mathHTMLs.length - 1}___`;
           } catch (err) {
             return `$$${displayPart}$$`;
           }
@@ -90,10 +100,12 @@ export default function MathRenderer({ text }) {
               if (inlineIdx % 2 === 1) {
                 // Inside $...$
                 try {
-                  return katex.renderToString(inlinePart, {
+                  const rendered = katex.renderToString(inlinePart, {
                     displayMode: false,
                     throwOnError: false,
                   });
+                  mathHTMLs.push(rendered);
+                  return `___MATH_RENDER_PLACEHOLDER_${mathHTMLs.length - 1}___`;
                 } catch (err) {
                   return `$${inlinePart}$`;
                 }
@@ -105,20 +117,6 @@ export default function MathRenderer({ text }) {
         }
       })
       .join("");
-  };
-
-  // A very basic markdown parser to format lists, headers, bold text and blocks
-  const formatMarkdownToHTML = (rawText) => {
-    if (!rawText) return "";
-
-    // Escape basic HTML tags to prevent injections but keep LaTeX backslashes intact
-    let html = rawText
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-
-    // Render KaTeX math formulas
-    html = renderMathText(html);
 
     // Headings: e.g. "### Bước 1: ..."
     html = html.replace(
@@ -167,10 +165,17 @@ export default function MathRenderer({ text }) {
       ) {
         return line;
       }
-      return `<p style="margin-bottom: 12px; color: var(--text2); text-align: justify; text-justify: inter-word; line-height: 1.7;">${line}</p>`;
+      return `<p style="margin-bottom: 12px; color: var(--text); text-align: justify; text-justify: inter-word; line-height: 1.7;">${line}</p>`;
     });
 
-    return processedLines.join("\n");
+    let finalHtml = processedLines.join("\n");
+
+    // Restore math placeholders
+    finalHtml = finalHtml.replace(/___MATH_RENDER_PLACEHOLDER_(\d+)___/g, (_, index) => {
+      return mathHTMLs[parseInt(index, 10)];
+    });
+
+    return finalHtml;
   };
 
   return (
@@ -180,7 +185,7 @@ export default function MathRenderer({ text }) {
       style={{
         lineHeight: "1.7",
         fontSize: "14px",
-        color: "var(--text2)",
+        color: "var(--text)",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
       dangerouslySetInnerHTML={{ __html: formatMarkdownToHTML(text) }}

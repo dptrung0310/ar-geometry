@@ -231,7 +231,7 @@ export default function ARPage() {
                   {geometryData.problem && (
                     <div style={styles.problemBox}>
                       <div style={styles.boxLabel}>VĂN BẢN ĐỀ BÀI (OCR)</div>
-                      <div style={styles.problemTextScanned}>{geometryData.problem}</div>
+                      <MathRenderer text={geometryData.problem} />
                     </div>
                   )}
 
@@ -483,10 +483,11 @@ function MetaChip({ label, value, unit }) {
 
 const styles = {
   pageContainer: {
-    minHeight: "100vh",
+    height: "100vh",
     display: "flex",
     flexDirection: "column",
     background: "var(--bg)",
+    overflow: "hidden",
   },
 
   workspaceWrapper: {
@@ -497,14 +498,16 @@ const styles = {
     padding: "16px 20px 24px",
     display: "flex",
     flexDirection: "column",
+    overflow: "hidden",
   },
 
   layout: {
     display: "grid",
-    gridTemplateColumns: "25fr 55fr 20fr",
+    gridTemplateColumns: "minmax(0, 25fr) minmax(0, 55fr) minmax(0, 20fr)",
     gap: "16px",
     alignItems: "stretch",
     flex: 1,
+    minHeight: 0,
   },
 
   viewerCard: {
@@ -514,8 +517,9 @@ const styles = {
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",
-    minHeight: "640px",
+    height: "100%",
     boxShadow: "none",
+    minWidth: 0,
   },
 
   viewerHeader: {
@@ -732,6 +736,9 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: "16px",
+    minWidth: 0,
+    height: "100%",
+    overflowY: "auto",
   },
 
   controlsCard: {
@@ -800,7 +807,9 @@ const styles = {
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",
-    minHeight: "640px",
+    height: "100%",
+    width: "100%",
+    minWidth: 0,
   },
 
   solutionHeader: {
@@ -826,10 +835,11 @@ const styles = {
     padding: "16px 20px",
     flex: 1,
     overflowY: "auto",
-    maxHeight: "570px",
+    overflowX: "hidden",
     display: "flex",
     flexDirection: "column",
     gap: "16px",
+    width: "100%",
   },
 
   problemBox: {
@@ -837,6 +847,9 @@ const styles = {
     border: "1px solid var(--border)",
     borderRadius: "8px",
     padding: "12px 14px",
+    width: "100%",
+    wordBreak: "break-word",
+    overflowWrap: "break-word",
   },
 
   boxLabel: {
@@ -859,6 +872,12 @@ const styles = {
     border: "1px solid var(--border)",
     borderRadius: "8px",
     padding: "12px 14px",
+    width: "100%",
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    wordBreak: "break-word",
+    overflowWrap: "break-word",
   },
 
   noSolutionBox: {
