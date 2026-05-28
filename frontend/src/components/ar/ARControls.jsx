@@ -134,28 +134,9 @@ export function ARControls({
         {cameraError && <div className="error-message">{cameraError}</div>}
       </div>
 
-      {/* ── TAB: BÀI TOÁN (Hiển thị trực tiếp) ───────────────────────── */}
+      {/* ── UPLOAD / GIẢI TOÁN ───────────────────────────────── */}
       <div className="section">
-        <div className="section-title">Chọn bài toán mẫu</div>
-
-        {/* Dropdown chọn bài */}
-        <select
-          className="problem-select"
-          value={selectedProblemId}
-          onChange={(e) => handleLoadProblem(e.target.value)}
-        >
-          <option value="">-- Chọn bài toán --</option>
-          {MOCK_GEOMETRY_PROBLEMS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label}
-            </option>
-          ))}
-        </select>
-
-        {/* Divider */}
-        <div className="divider">
-          <span>hoặc</span>
-        </div>
+        <div className="section-title">Giải toán từ ảnh</div>
 
         {/* Upload ảnh đề bài */}
         <button
@@ -188,110 +169,23 @@ export function ARControls({
             ⚠️ {apiError}
           </div>
         )}
-
-        {/* Đang hiển thị bài toán nào */}
-        {mode === "custom" && selectedProblemId && (
-          <div className="active-problem">
-            ✅ Đang hiển thị:{" "}
-            <strong>
-              {MOCK_GEOMETRY_PROBLEMS.find((p) => p.id === selectedProblemId)?.label}
-            </strong>
-          </div>
-        )}
-      </div>
-
-      {/* ── SETTINGS ─────────────────────────────────────────────── */}
-      <div className="section">
-        {mode === "custom" && (
-          <>
-            <div className="section-title">Hiển thị toán học</div>
-            <div className="toggle-buttons" style={{ marginBottom: 4 }}>
-              <button
-                className={`toggle-btn ${showEdgeLengths ? "active" : ""}`}
-                onClick={toggleEdgeLengths}
-                title="Hiện/ẩn độ dài các cạnh"
-              >
-                📏 Độ dài cạnh
-              </button>
-              <button
-                className={`toggle-btn ${showConstraints ? "active" : ""}`}
-                onClick={toggleConstraints}
-                title="Hiện/ẩn ký hiệu góc vuông, cạnh bằng"
-              >
-                ∟ Ký hiệu
-              </button>
-            </div>
-          </>
-        )}
-
-        <details className="advanced-settings">
-          <summary className="advanced-summary">Tùy chỉnh hiển thị</summary>
-          <div className="advanced-content" style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-            <div className="control-group">
-              <div className="label-row">
-                <span>Kích thước</span>
-                <span className="value">{size.toFixed(2)}</span>
-              </div>
-              <input
-                type="range"
-                min="0.5"
-                max="3"
-                step="0.1"
-                value={size}
-                onChange={(e) => setSize(parseFloat(e.target.value))}
-                className="slider"
-              />
-            </div>
-
-            <div className="control-group">
-              <div className="label-row">
-                <span>Độ trong suốt</span>
-                <span className="value">{(opacity * 100).toFixed(0)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={opacity}
-                onChange={(e) => setOpacity(parseFloat(e.target.value))}
-                className="slider"
-              />
-            </div>
-
-            <div className="toggle-buttons">
-              <button
-                className={`toggle-btn ${wireframe ? "active" : ""}`}
-                onClick={toggleWireframe}
-              >
-                Wireframe
-              </button>
-              <button
-                className={`toggle-btn ${autoRotate ? "active" : ""}`}
-                onClick={toggleAutoRotate}
-              >
-                Auto Rotate
-              </button>
-            </div>
-          </div>
-        </details>
       </div>
 
       <style>{`
         .ar-controls {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 16px;
         }
 
         .section {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 10px;
         }
 
         .section-title {
-          font-size: 10px;
+          font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 0.8px;
           color: var(--text3);
@@ -302,13 +196,13 @@ export function ARControls({
         /* ── CAMERA BTN ─────────────────── */
         .camera-btn {
           width: 100%;
-          padding: 8px 12px;
+          padding: 12px 16px;
           background: var(--bg3);
           border: 1px solid var(--border);
-          border-radius: 8px;
+          border-radius: 10px;
           color: var(--text);
-          font-size: 12px;
-          font-weight: 500;
+          font-size: 14px;
+          font-weight: 600;
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -322,76 +216,40 @@ export function ARControls({
 
         /* ── ERROR ──────────────────────── */
         .error-message {
-          padding: 8px 10px;
+          padding: 10px 12px;
           border-radius: 8px;
           background: rgba(239, 68, 68, 0.08);
           border: 1px solid rgba(239, 68, 68, 0.2);
           color: #fca5a5;
-          font-size: 11px;
-          line-height: 1.4;
-        }
-
-        /* ── PROBLEM SELECT ─────────────── */
-        .problem-select {
-          width: 100%;
-          padding: 8px 10px;
-          background: var(--bg3);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          color: var(--text);
           font-size: 12px;
-          cursor: pointer;
-          outline: none;
-          appearance: none;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
-          background-repeat: no-repeat;
-          background-position: right 10px center;
-        }
-
-        .problem-select:focus { border-color: rgba(59, 130, 246, 0.4); }
-        .problem-select option { background: var(--bg2); }
-
-        /* ── DIVIDER ────────────────────── */
-        .divider {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: var(--text3);
-          font-size: 10px;
-        }
-
-        .divider::before, .divider::after {
-          content: '';
-          flex: 1;
-          height: 1px;
-          background: var(--border);
+          line-height: 1.4;
         }
 
         /* ── UPLOAD BTN ─────────────────── */
         .upload-btn {
           width: 100%;
-          padding: 8px 12px;
+          padding: 16px 20px;
           background: var(--bg3);
           border: 1px dashed var(--border);
-          border-radius: 8px;
+          border-radius: 10px;
           color: var(--text2);
           cursor: pointer;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 3px;
+          gap: 4px;
           transition: all .2s ease;
         }
 
         .upload-btn:hover { border-color: rgba(59, 130, 246, 0.25); background: rgba(59, 130, 246, 0.04); }
-        .upload-sub { font-size: 9px; color: var(--text3); font-family: 'Fira Code', monospace; }
+        .upload-sub { font-size: 10px; color: var(--text3); font-family: 'Fira Code', monospace; }
 
         /* ── LOADING ────────────────────── */
         .loading-bar {
           display: flex;
           flex-direction: column;
-          gap: 4px;
-          font-size: 10px;
+          gap: 6px;
+          font-size: 11px;
           color: var(--text3);
           font-family: 'Fira Code', monospace;
         }
@@ -409,82 +267,23 @@ export function ARControls({
           100% { background-position: 200% 0; }
         }
 
-        /* ── ACTIVE PROBLEM ─────────────── */
-        .active-problem {
-          font-size: 11px;
-          color: var(--text2);
-          padding: 8px 10px;
-          background: rgba(16, 185, 129, 0.05);
-          border: 1px solid rgba(16, 185, 129, 0.15);
-          border-radius: 8px;
-          line-height: 1.4;
-        }
-
-        /* ── CONTROLS ───────────────────── */
-        .control-group { display: flex; flex-direction: column; gap: 6px; }
-
-        .label-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 11px;
-          color: var(--text2);
-        }
-
-        .value { color: var(--cyan); font-family: 'Fira Code', monospace; font-size: 11px; }
-        .slider { width: 100%; accent-color: var(--cyan); cursor: pointer; }
-
-        .toggle-buttons { display: flex; gap: 8px; }
+        .toggle-buttons { display: flex; gap: 10px; }
 
         .toggle-btn {
           flex: 1;
-          padding: 6px;
-          border-radius: 6px;
+          padding: 10px 14px;
+          border-radius: 8px;
           border: 1px solid var(--border);
           background: var(--bg3);
           color: var(--text2);
           cursor: pointer;
-          font-size: 11px;
+          font-size: 13px;
+          font-weight: 500;
           transition: all .2s ease;
         }
 
         .toggle-btn:hover { background: rgba(59, 130, 246, 0.05); border-color: rgba(59, 130, 246, 0.2); }
         .toggle-btn.active { background: rgba(59, 130, 246, 0.1); color: var(--cyan); border-color: rgba(59, 130, 246, 0.3); }
-
-        .advanced-settings {
-          margin-top: 10px;
-          border-top: 1px solid var(--border);
-          padding-top: 10px;
-        }
-
-        .advanced-summary {
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--text2);
-          cursor: pointer;
-          user-select: none;
-          outline: none;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          list-style: none;
-        }
-
-        .advanced-summary::-webkit-details-marker {
-          display: none;
-        }
-
-        .advanced-summary::after {
-          content: '▼';
-          font-size: 8px;
-          color: var(--text3);
-          transition: transform 0.2s ease;
-          transform: rotate(-90deg);
-        }
-
-        details[open] .advanced-summary::after {
-          transform: rotate(0deg);
-        }
       `}</style>
     </div>
   );

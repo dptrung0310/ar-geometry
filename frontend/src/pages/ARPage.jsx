@@ -42,7 +42,7 @@ function AcademicStepperLoader() {
         {steps.map((step, idx) => {
           const isCompleted = activeStep > idx;
           const isActive = activeStep === idx;
-          
+
           let statusColor = "var(--text3)";
           let iconContent = idx + 1;
           let iconBg = "rgba(255, 255, 255, 0.02)";
@@ -180,7 +180,7 @@ export default function ARPage() {
         el.style.display = visible ? "block" : "none";
         el.style.left = `${px}px`;
         el.style.top = `${py}px`;
-      } catch (_) {}
+      } catch (_) { }
     });
   }, [cameraRef, customGroupRef]);
 
@@ -263,213 +263,181 @@ export default function ARPage() {
             </div>
           </div>
 
-        {/* ── CỬA SỔ VẼ HÌNH 3D (Ở GIỮA/PHẢI) ────────────────────── */}
-        <div style={styles.viewerCard}>
-          <div style={styles.viewerHeader}>
-            <div>
-              <div style={styles.shapeName}>
-                {mode === "custom"
-                  ? geometryData?.label || "Hình vẽ 3D tương tác"
-                  : currentShape?.name}
+          {/* ── CỬA SỔ VẼ HÌNH 3D (Ở GIỮA/PHẢI) ────────────────────── */}
+          <div style={styles.viewerCard}>
+            <div style={styles.viewerHeader}>
+              <div>
+                <div style={styles.shapeName}>
+                  {mode === "custom"
+                    ? geometryData?.label || "Hình vẽ 3D tương tác"
+                    : currentShape?.name}
+                </div>
+                <div style={styles.shapeInfo}>
+                  {mode === "custom"
+                    ? "Interactive Geometry View"
+                    : "AR Hand Tracking Active"}
+                </div>
               </div>
-              <div style={styles.shapeInfo}>
-                {mode === "custom"
-                  ? "Interactive Geometry View"
-                  : "AR Hand Tracking Active"}
+
+              <div style={styles.statusWrap}>
+                <div
+                  style={{
+                    ...styles.statusDot,
+                    background: cameraActive ? "var(--green)" : "#666",
+                  }}
+                />
+                <span style={styles.statusText}>
+                  {cameraActive ? "Camera Active" : "Camera Off"}
+                </span>
               </div>
             </div>
 
-            <div style={styles.statusWrap}>
-              <div
-                style={{
-                  ...styles.statusDot,
-                  background: cameraActive ? "var(--green)" : "#666",
-                }}
+            <div style={{ ...styles.canvasWrapper, background: cameraActive ? "transparent" : "#f8fafc" }}>
+              {/* CAMERA VIDEO */}
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                style={styles.video}
               />
-              <span style={styles.statusText}>
-                {cameraActive ? "Camera Active" : "Camera Off"}
-              </span>
-            </div>
-          </div>
 
-          <div style={{ ...styles.canvasWrapper, background: cameraActive ? "transparent" : "#f8fafc" }}>
-            {/* CAMERA VIDEO */}
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              playsInline
-              style={styles.video}
-            />
+              {/* THREE.js WebGL canvas */}
+              <canvas ref={canvasRef} style={styles.canvas} />
 
-            {/* THREE.js WebGL canvas */}
-            <canvas ref={canvasRef} style={styles.canvas} />
+              {/* ── HTML Label Overlay (vertex names + edge lengths) ── */}
+              {mode === "custom" && !xrSessionActive && (
+                <div ref={labelContainerRef} style={styles.labelContainer}>
+                  {/* Vertex labels */}
+                  {labelData.vertexLabels.map((lbl) => (
+                    <div
+                      key={`v-${lbl.name}`}
+                      data-pos={`${lbl.position.x},${lbl.position.y},${lbl.position.z}`}
+                      style={{
+                        ...styles.vertexLabel,
+                        background: lbl.isHighlighted
+                          ? "#EF4444"
+                          : "rgba(15, 23, 42, 0.95)",
+                        borderColor: lbl.isHighlighted ? "#FCA5A5" : "rgba(255, 255, 255, 0.8)",
+                        color: "#ffffff",
+                      }}
+                    >
+                      {lbl.name}
+                    </div>
+                  ))}
 
-            {/* ── HTML Label Overlay (vertex names + edge lengths) ── */}
-            {mode === "custom" && !xrSessionActive && (
-              <div ref={labelContainerRef} style={styles.labelContainer}>
-                {/* Vertex labels */}
-                {labelData.vertexLabels.map((lbl) => (
-                  <div
-                    key={`v-${lbl.name}`}
-                    data-pos={`${lbl.position.x},${lbl.position.y},${lbl.position.z}`}
-                    style={{
-                      ...styles.vertexLabel,
-                      background: lbl.isHighlighted
-                        ? "#EF4444"
-                        : "rgba(15, 23, 42, 0.95)",
-                      borderColor: lbl.isHighlighted ? "#FCA5A5" : "rgba(255, 255, 255, 0.8)",
-                      color: "#ffffff",
-                    }}
-                  >
-                    {lbl.name}
-                  </div>
-                ))}
-
-                {/* Edge length labels */}
-                {showEdgeLengths && labelData.edgeLabels.map((lbl) => (
-                  <div
-                    key={`e-${lbl.name}`}
-                    data-pos={`${lbl.position.x},${lbl.position.y},${lbl.position.z}`}
-                    style={styles.edgeLabel}
-                  >
-                    {lbl.label}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* ── Floating Canvas interaction tip ── */}
-            {geometryData && !cameraActive && !xrSessionActive && (
-              <div style={styles.canvasTip}>
-                💡 Kéo chuột để xoay · Cuộn để thu phóng
-              </div>
-            )}
-
-            {/* ── Placeholder khi camera chưa bật & chưa load hình ──────────────── */}
-            {!cameraActive && !xrSessionActive && !geometryData && (
-              <div style={styles.overlay}>
-                <div style={styles.overlayBox}>
-                  <div style={styles.overlayIcon}>📐</div>
-                  <h3 style={styles.overlayTitle}>Không gian Hình học 3D</h3>
-                  <p style={styles.overlayDesc}>
-                    Hãy tải ảnh đề bài lên hoặc chọn bài toán mẫu để dựng mô hình 3D tương tác.
-                  </p>
+                  {/* Edge length labels */}
+                  {showEdgeLengths && labelData.edgeLabels.map((lbl) => (
+                    <div
+                      key={`e-${lbl.name}`}
+                      data-pos={`${lbl.position.x},${lbl.position.y},${lbl.position.z}`}
+                      style={styles.edgeLabel}
+                    >
+                      {lbl.label}
+                    </div>
+                  ))}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* ── WebXR HUD Overlay (chỉ hiện khi đang chạy WebXR) ── */}
-            {xrSessionActive && (
-              <div style={styles.xrHud}>
-                <div style={styles.xrHudTop}>
-                  <button
-                    style={
-                      arAnchored
-                        ? styles.xrAnchorBtnActive
-                        : styles.xrAnchorBtnInactive
-                    }
-                    className="no-gesture"
-                    onClick={toggleArAnchored}
-                  >
-                    {arAnchored ? "🔒 Đang Ghim hình" : "🔓 Đang di chuyển"}
-                  </button>
-                  <button
-                    style={styles.xrExitBtn}
-                    className="no-gesture"
-                    onClick={toggleXR}
-                  >
-                    ✕ Thoát AR
-                  </button>
+              {/* ── Floating Canvas interaction tip ── */}
+              {geometryData && !cameraActive && !xrSessionActive && (
+                <div style={styles.canvasTip}>
+                  💡 Kéo chuột để xoay · Cuộn để thu phóng
                 </div>
+              )}
 
-                <div style={styles.xrInstructions} className="no-gesture">
-                  <div style={styles.xrInstructionsTitle}>Hướng dẫn tương tác:</div>
-                  <div>• Quét camera quanh sàn/bàn để tìm bề mặt.</div>
-                  {arAnchored ? (
-                    <>
-                      <div>• Hình đã được ghim vị trí cố định.</div>
-                      <div>• Vuốt 1 ngón để <strong>xoay ngang</strong>, 2 ngón để thu phóng.</div>
-                      <div>• Nhấn nút 🔓 ở trên để gỡ ghim di chuyển hình.</div>
-                    </>
-                  ) : (
-                    <>
-                      <div>• Chạm điểm ngắm màu xanh để đặt hình nhanh.</div>
-                      <div>• Vuốt 1 ngón để <strong>kéo và di chuyển</strong> hình trên mặt phẳng.</div>
-                      <div>• Nhấn nút 🔒 ở trên để ghim cố định hình.</div>
-                    </>
-                  )}
-                  <div id="xr-depth-status" style={{ marginTop: "6px", color: "#ffd700", fontWeight: "bold" }}>
-                    • Depth: Đang kiểm tra cảm biến...
+              {/* ── Placeholder khi camera chưa bật & chưa load hình ──────────────── */}
+              {!cameraActive && !xrSessionActive && !geometryData && (
+                <div style={styles.overlay}>
+                  <div style={styles.overlayBox}>
+                    <div style={styles.overlayIcon}>📐</div>
+                    <h3 style={styles.overlayTitle}>Không gian Hình học 3D</h3>
+                    <p style={styles.overlayDesc}>
+                      Hãy tải ảnh đề bài lên hoặc chọn bài toán mẫu để dựng mô hình 3D tương tác.
+                    </p>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
 
-          {/* ── Meta: V, S, h ──────────────────────────────────── */}
-          {mode === "custom" && geometryData?.meta && (
-            <div style={styles.metaBar}>
-              {geometryData.meta.volume !== undefined && (
-                <MetaChip
-                  label="Thể tích"
-                  value={`${geometryData.meta.volume.toFixed(3)}`}
-                  unit="đvtt"
-                />
-              )}
-              {geometryData.meta.surface_area !== undefined && (
-                <MetaChip
-                  label="Diện tích TP"
-                  value={`${geometryData.meta.surface_area.toFixed(2)}`}
-                  unit="đvdt"
-                />
-              )}
-              {geometryData.meta.height !== undefined && (
-                <MetaChip
-                  label="Chiều cao"
-                  value={`${geometryData.meta.height}`}
-                  unit="h"
-                />
-              )}
-              {geometryData.meta.base_edge !== undefined && (
-                <MetaChip
-                  label="Cạnh đáy"
-                  value={`${geometryData.meta.base_edge}`}
-                  unit="a"
-                />
+              {/* ── WebXR HUD Overlay (chỉ hiện khi đang chạy WebXR) ── */}
+              {xrSessionActive && (
+                <div style={styles.xrHud}>
+                  <div style={styles.xrHudTop}>
+                    <button
+                      style={
+                        arAnchored
+                          ? styles.xrAnchorBtnActive
+                          : styles.xrAnchorBtnInactive
+                      }
+                      className="no-gesture"
+                      onClick={toggleArAnchored}
+                    >
+                      {arAnchored ? "🔒 Đang Ghim hình" : "🔓 Đang di chuyển"}
+                    </button>
+                    <button
+                      style={styles.xrExitBtn}
+                      className="no-gesture"
+                      onClick={toggleXR}
+                    >
+                      ✕ Thoát AR
+                    </button>
+                  </div>
+
+                  <div style={styles.xrInstructions} className="no-gesture">
+                    <div style={styles.xrInstructionsTitle}>Hướng dẫn tương tác:</div>
+                    <div>• Quét camera quanh sàn/bàn để tìm bề mặt.</div>
+                    {arAnchored ? (
+                      <>
+                        <div>• Hình đã được ghim vị trí cố định.</div>
+                        <div>• Vuốt 1 ngón để <strong>xoay ngang</strong>, 2 ngón để thu phóng.</div>
+                        <div>• Nhấn nút 🔓 ở trên để gỡ ghim di chuyển hình.</div>
+                      </>
+                    ) : (
+                      <>
+                        <div>• Chạm điểm ngắm màu xanh để đặt hình nhanh.</div>
+                        <div>• Vuốt 1 ngón để <strong>kéo và di chuyển</strong> hình trên mặt phẳng.</div>
+                        <div>• Nhấn nút 🔒 ở trên để ghim cố định hình.</div>
+                      </>
+                    )}
+                    <div id="xr-depth-status" style={{ marginTop: "6px", color: "#ffd700", fontWeight: "bold" }}>
+                      • Depth: Đang kiểm tra cảm biến...
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
-          )}
-        </div>
 
-        {/* ── BẢNG ĐIỀU KHIỂN (BÊN PHẢI) ────────────────────────── */}
-        <div style={styles.controlsCol}>
-          <div style={styles.controlsCard}>
-            <div style={styles.panelTitle}>Điều khiển AR</div>
-            <ARControls
-              onToggleCamera={toggleCamera}
-              cameraActive={cameraActive}
-              onToggleXR={toggleXR}
-              xrSessionActive={xrSessionActive}
-              error={error}
-            />
+
           </div>
 
-          <div style={styles.helpCard}>
-            <div style={styles.panelTitle}>Hand Gestures</div>
-            <div style={styles.gestureList}>
-              <GestureRow emoji="🖐" title="Open Palm" desc="Xoay object" />
-              <GestureRow emoji="🤏" title="Pinch" desc="Di chuyển object" />
-              <GestureRow
-                emoji="🤏🤏"
-                title="2 tay Pinch"
-                desc="Phóng to / Thu nhỏ"
+          {/* ── BẢNG ĐIỀU KHIỂN (BÊN PHẢI) ────────────────────────── */}
+          <div style={styles.controlsCol}>
+            <div style={styles.controlsCard}>
+              <div style={styles.panelTitle}>Điều khiển AR</div>
+              <ARControls
+                onToggleCamera={toggleCamera}
+                cameraActive={cameraActive}
+                onToggleXR={toggleXR}
+                xrSessionActive={xrSessionActive}
+                error={error}
               />
+            </div>
+
+            <div style={styles.helpCard}>
+              <div style={styles.panelTitle}>Hand Gestures</div>
+              <div style={styles.gestureList}>
+                <GestureRow emoji="🖐" title="Open Palm" desc="Xoay object" />
+                <GestureRow emoji="🤏" title="Pinch" desc="Di chuyển object" />
+                <GestureRow
+                  emoji="🤏🤏"
+                  title="2 tay Pinch"
+                  desc="Phóng to / Thu nhỏ"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
-</div>
 
       <style>{`
         @keyframes blink {
@@ -546,7 +514,7 @@ const styles = {
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",
-    minHeight: "780px",
+    minHeight: "640px",
     boxShadow: "none",
   },
 
@@ -832,7 +800,7 @@ const styles = {
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",
-    minHeight: "780px",
+    minHeight: "640px",
   },
 
   solutionHeader: {
@@ -858,7 +826,7 @@ const styles = {
     padding: "16px 20px",
     flex: 1,
     overflowY: "auto",
-    maxHeight: "710px",
+    maxHeight: "570px",
     display: "flex",
     flexDirection: "column",
     gap: "16px",

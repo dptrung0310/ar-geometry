@@ -41,7 +41,7 @@ const useViewerStore = create((set) => ({
 
   // ── Shared settings ───────────────────────────────────────────
   wireframe: false,
-  autoRotate: true,
+  autoRotate: false,
   size: 1.0,
   opacity: 0.35,
 

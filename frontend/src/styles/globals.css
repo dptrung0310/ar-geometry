@@ -8,26 +8,35 @@
 }
 
 :root {
-  --bg: #0B1020; /* Calm dark slate */
-  --bg2: #111827; /* Surface slate */
-  --bg3: #1E293B; /* Light slate / Figma panel */
+  --bg: #0B1020;
+  /* Calm dark slate */
+  --bg2: #111827;
+  /* Surface slate */
+  --bg3: #1E293B;
+  /* Light slate / Figma panel */
   --bg4: #334155;
 
-  --cyan: #3B82F6; /* Academic Blue */
+  --cyan: #3B82F6;
+  /* Academic Blue */
   --cyan2: #2563EB;
   --purple: #3B82F6;
   --purple2: #2563EB;
-  --green: #22C55E; /* Success */
-  --orange: #F59E0B; 
+  --green: #22C55E;
+  /* Success */
+  --orange: #F59E0B;
 
-  --text: #F8FAFC; /* Primary Text */
-  --text2: #94A3B8; /* Secondary Text */
-  --text3: #64748B; /* Muted Text */
+  --text: #F8FAFC;
+  /* Primary Text */
+  --text2: #94A3B8;
+  /* Secondary Text */
+  --text3: #64748B;
+  /* Muted Text */
 
   --border: rgba(255, 255, 255, 0.06);
   --border2: rgba(255, 255, 255, 0.08);
 
-  --card: #111827; /* Notion-like dark surfaces */
+  --card: #111827;
+  /* Notion-like dark surfaces */
   --card2: #1E293B;
 }
 
@@ -42,29 +51,35 @@ body {
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: var(--bg2);
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--border2);
   border-radius: 3px;
 }
 
 @keyframes pulse {
+
   0%,
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.4;
   }
 }
 
 @keyframes float {
+
   0%,
   100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-8px);
   }
@@ -79,6 +94,7 @@ input[type="range"] {
   outline: none;
   cursor: pointer;
 }
+
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 14px;
@@ -136,6 +152,7 @@ input[type="range"]::-webkit-slider-thumb {
     border-color 0.25s,
     box-shadow 0.25s !important;
 }
+
 .shape-card-hover:hover {
   transform: translateY(-4px);
   border-color: var(--border2) !important;
@@ -147,6 +164,7 @@ input[type="range"]::-webkit-slider-thumb {
     border-color 0.2s,
     background 0.2s !important;
 }
+
 .lesson-card-hover:hover {
   border-color: var(--border2) !important;
   background: var(--card2) !important;
@@ -157,6 +175,7 @@ input[type="range"]::-webkit-slider-thumb {
     border-color 0.2s,
     transform 0.2s !important;
 }
+
 .tech-card-hover:hover {
   border-color: var(--border2) !important;
   transform: translateY(-2px);
@@ -171,6 +190,7 @@ input[type="range"]::-webkit-slider-thumb {
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -180,6 +200,7 @@ input[type="range"]::-webkit-slider-thumb {
 .roadmap-item-hover {
   transition: background 0.2s !important;
 }
+
 .roadmap-item-hover:hover {
   background: var(--card2) !important;
 }
@@ -188,10 +209,12 @@ input[type="range"]::-webkit-slider-thumb {
   opacity: 0.88;
   transform: translateY(-1px);
 }
+
 .btn-secondary:hover {
   border-color: var(--border2) !important;
   color: var(--text) !important;
 }
+
 .btn-purple:hover {
   opacity: 0.85;
 }
@@ -201,6 +224,10 @@ input[type="range"]::-webkit-slider-thumb {
     transform: rotate(360deg);
   }
 }
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @tailwind base;
 @tailwind components;
