@@ -157,6 +157,21 @@ export function buildFaceMesh(geometryData, opacity = 0.15, scaleFactor = 1) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+function createDotTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, 32, 32);
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(16, 16, 14, 0, 2 * Math.PI);
+  ctx.fill();
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  return texture;
+}
+
 export function buildVertexPoints(geometryData, scaleFactor = 1) {
   const verts = normalizeVertices(geometryData.vertices);
   const positions = [];
@@ -181,9 +196,12 @@ export function buildVertexPoints(geometryData, scaleFactor = 1) {
   geo.setAttribute("color",    new THREE.Float32BufferAttribute(colors,    3));
 
   const mat = new THREE.PointsMaterial({
-    size: 0.08,
+    size: 0.03 * scaleFactor,
     vertexColors: true,
     sizeAttenuation: true,
+    map: createDotTexture(),
+    transparent: true,
+    alphaTest: 0.5,
   });
 
   return new THREE.Points(geo, mat);
@@ -320,6 +338,7 @@ export function build3DSpriteLabels(geometryData, scaleFactor = 1) {
       map: texture,
       transparent: true,
       depthTest: false,
+      alphaTest: 0.5,
     });
 
     const sprite = new THREE.Sprite(mat);

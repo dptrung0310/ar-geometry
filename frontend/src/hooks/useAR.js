@@ -239,7 +239,7 @@ export function useAR(
     const dirLight = new THREE.DirectionalLight(0xffffff, 1);
     dirLight.position.set(5, 5, 5);
     scene.add(dirLight);
-    const ptLight = new THREE.PointLight(0xff00ff, 0.5);
+    const ptLight = new THREE.PointLight(0xffffff, 0.3);
     ptLight.position.set(-5, -5, 5);
     scene.add(ptLight);
 
@@ -247,7 +247,7 @@ export function useAR(
     const reticleGeo = new THREE.RingGeometry(0.1, 0.12, 32);
     reticleGeo.rotateX(-Math.PI / 2);
     const reticle = new THREE.Mesh(reticleGeo, new THREE.MeshBasicMaterial({
-      color: 0x00e5ff, side: THREE.DoubleSide, transparent: true, opacity: 0.8,
+      color: 0x3B82F6, side: THREE.DoubleSide, transparent: true, opacity: 0.6,
     }));
     reticle.visible = false;
     reticle.matrixAutoUpdate = false;
@@ -494,8 +494,11 @@ export function useAR(
           if (hits.length > 0) {
             const pose = hits[0].getPose(refSpace);
             if (pose && reticleRef.current) {
-              reticleRef.current.visible = true;
+              reticleRef.current.visible = !arAnchoredRef.current;
               reticleRef.current.matrix.fromArray(pose.transform.matrix);
+              if (reticleRef.current.material) {
+                reticleRef.current.material.opacity = 0.6;
+              }
             }
           } else {
             if (reticleRef.current) reticleRef.current.visible = false;
