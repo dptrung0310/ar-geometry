@@ -83,13 +83,13 @@ export function useHandTracking(videoRef, enabled, onResults) {
 
       // Bước 1: Dừng camera (ngăn onFrame mới được gọi)
       if (cam) {
-        try { cam.stop(); } catch (_) {}
+        try { cam.stop(); } catch (_) { }
       }
 
       // Bước 2: Đợi các frame in-flight kết thúc trước khi đóng WASM
       setTimeout(() => {
         if (hands) {
-          try { hands.close(); } catch (_) {}
+          try { hands.close(); } catch (_) { }
         }
       }, 250);
     };
