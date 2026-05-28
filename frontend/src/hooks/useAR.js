@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
 import { makeGeo, makeMaterial, makeEdges } from "../utils/geometry";
-import { buildCustomGeometry } from "../utils/buildCustomGeometry";
+import { buildCustomGeometry, precomputeFaces, precomputeEdgeFaceMap, updateDynamicEdges } from "../utils/buildCustomGeometry";
 
 import { useHandTracking } from "./useHandTracking";
 import { getDistance } from "../utils/gestures";
@@ -70,6 +70,9 @@ export function useAR(
   // Target refs và velocity cho di chuyển / phóng to
   const dragVelocityRef   = useRef({ x: 0, y: 0 });
   const targetScaleRef    = useRef(1.0);
+  const precomputedFacesRef = useRef([]);
+  const precomputedEdgesRef = useRef([]);
+  const currentScaleFactorRef = useRef(1.0);
 
   // ── Constants ─────────────────────────────────────────────────────────────
   const ROT_SENSITIVITY   = 3.0;
@@ -394,11 +397,21 @@ export function useAR(
     if (meshRef.current)        { scene.remove(meshRef.current);        meshRef.current = null; }
     if (edgesRef.current)       { scene.remove(edgesRef.current);       edgesRef.current = null; }
     if (customGroupRef.current) { scene.remove(customGroupRef.current); customGroupRef.current = null; }
+    precomputedFacesRef.current = [];
+    precomputedEdgesRef.current = [];
 
     if (geometryData) {
+      const faces = precomputeFaces(geometryData);
+      const edges = precomputeEdgeFaceMap(geometryData, faces);
+      precomputedFacesRef.current = faces;
+      precomputedEdgesRef.current = edges;
+
+      const scaleFactor = xrSessionActive ? size * 0.18 : size;
+      currentScaleFactorRef.current = scaleFactor;
+
       const group = buildCustomGeometry(geometryData, {
         opacity,
-        scaleFactor: xrSessionActive ? size * 0.18 : size,
+        scaleFactor,
         showPoints: true,
         showConstraints,
         show3DLabels: xrSessionActive,
@@ -474,6 +487,9 @@ export function useAR(
 
   const autoRotateRef = useRef(autoRotate);
   useEffect(() => { autoRotateRef.current = autoRotate; }, [autoRotate]);
+
+  const geometryDataRef = useRef(geometryData);
+  useEffect(() => { geometryDataRef.current = geometryData; }, [geometryData]);
 
   // ── Animation Loop (60 FPS) ───────────────────────────────────────────────
   useEffect(() => {
@@ -648,6 +664,18 @@ export function useAR(
           obj.scale.setScalar(newScale);
           if (edges) edges.scale.copy(obj.scale);
         }
+      }
+
+      // ── Cập nhật nét đứt/nét liền động theo thời gian thực (góc nhìn camera) ──
+      if (geometryDataRef.current && customGroupRef.current && precomputedEdgesRef.current.length > 0 && cameraRef.current) {
+        updateDynamicEdges(
+          customGroupRef.current,
+          cameraRef.current,
+          geometryDataRef.current,
+          precomputedFacesRef.current,
+          precomputedEdgesRef.current,
+          currentScaleFactorRef.current
+        );
       }
 
       if (rendererRef.current && sceneRef.current && cameraRef.current) {

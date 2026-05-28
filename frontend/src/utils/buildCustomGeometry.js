@@ -81,34 +81,32 @@ export function buildEdgeLines(geometryData, scaleFactor = 1) {
   group.name = "edges";
 
   // ── Nét liền ─────────────────────────────────────────────────────────────
-  if (solidPositions.length) {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(solidPositions, 3));
-    const mat = new THREE.LineBasicMaterial({
-      color: "#1a1a1a",
-      linewidth: 2,
-      transparent: true,
-      opacity: 0.95,
-    });
-    group.add(new THREE.LineSegments(geo, mat));
-  }
+  const solidGeo = new THREE.BufferGeometry();
+  solidGeo.setAttribute("position", new THREE.Float32BufferAttribute(solidPositions, 3));
+  const solidMat = new THREE.LineBasicMaterial({
+    color: "#1a1a1a",
+    linewidth: 2,
+    transparent: true,
+    opacity: 0.95,
+  });
+  const solidLine = new THREE.LineSegments(solidGeo, solidMat);
+  solidLine.name = "solid";
+  group.add(solidLine);
 
   // ── Nét đứt ──────────────────────────────────────────────────────────────
-  if (dashedPositions.length) {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(dashedPositions, 3));
-    
-    const mat = new THREE.LineDashedMaterial({
-      color: "#1a1a1a",
-      dashSize: 0.1,
-      gapSize: 0.05,
-      transparent: true,
-      opacity: 0.8,
-    });
-    const line = new THREE.LineSegments(geo, mat);
-    line.computeLineDistances(); // BẮT BUỘC để LineDashedMaterial hoạt động
-    group.add(line);
-  }
+  const dashedGeo = new THREE.BufferGeometry();
+  dashedGeo.setAttribute("position", new THREE.Float32BufferAttribute(dashedPositions, 3));
+  const dashedMat = new THREE.LineDashedMaterial({
+    color: "#1a1a1a",
+    dashSize: 0.1,
+    gapSize: 0.05,
+    transparent: true,
+    opacity: 0.8,
+  });
+  const dashedLine = new THREE.LineSegments(dashedGeo, dashedMat);
+  dashedLine.name = "dashed";
+  dashedLine.computeLineDistances();
+  group.add(dashedLine);
 
   return group;
 }
@@ -442,3 +440,178 @@ export function computeLabelPositions(geometryData, scaleFactor = 1) {
 
   return { vertexLabels, edgeLabels };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRECOMPUTE: Phân tích các mặt của hình để tìm vector pháp tuyến hướng ra ngoài
+// ─────────────────────────────────────────────────────────────────────────────
+export function precomputeFaces(geometryData) {
+  if (!geometryData || !geometryData.vertices || !geometryData.faces) return [];
+  const verts = normalizeVertices(geometryData.vertices);
+  
+  // 1. Tính tâm của hình học polyhedron trong toạ độ local làm điểm mốc bên trong
+  const vals = Object.values(verts);
+  if (vals.length === 0) return [];
+  const polyCentroid = new THREE.Vector3(0, 0, 0);
+  vals.forEach(v => polyCentroid.add(new THREE.Vector3(...v)));
+  polyCentroid.divideScalar(vals.length);
+
+  const faces = [];
+  
+  for (const face of geometryData.faces) {
+    const faceVerts = face.vertices.map(name => {
+      const pos = verts[name];
+      return pos ? new THREE.Vector3(...pos) : null;
+    }).filter(Boolean);
+
+    if (faceVerts.length < 3) continue;
+
+    // Tính tâm (centroid) của mặt phẳng
+    const faceCentroid = new THREE.Vector3(0, 0, 0);
+    faceVerts.forEach(v => faceCentroid.add(v));
+    faceCentroid.divideScalar(faceVerts.length);
+
+    // Tính pháp tuyến sơ bộ từ 3 đỉnh đầu tiên
+    const v0 = faceVerts[0];
+    const v1 = faceVerts[1];
+    const v2 = faceVerts[2];
+    const e1 = new THREE.Vector3().subVectors(v1, v0);
+    const e2 = new THREE.Vector3().subVectors(v2, v0);
+    const normal = new THREE.Vector3().crossVectors(e1, e2).normalize();
+
+    // Kiểm tra xem pháp tuyến hướng ra ngoài (dot product với vector từ tâm hình đến mặt > 0)
+    // Nếu ngược lại, đảo chiều pháp tuyến
+    const dirOut = new THREE.Vector3().subVectors(faceCentroid, polyCentroid);
+    if (normal.dot(dirOut) < 0) {
+      normal.negate();
+    }
+
+    faces.push({
+      vertices: face.vertices,
+      center: faceCentroid,
+      normal: normal
+    });
+  }
+
+  return faces;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRECOMPUTE: Ánh xạ mỗi cạnh đến các mặt phẳng chứa nó
+// ─────────────────────────────────────────────────────────────────────────────
+export function precomputeEdgeFaceMap(geometryData, precomputedFaces) {
+  if (!geometryData || !geometryData.edges) return [];
+  const edgeMap = {};
+
+  // Khởi tạo map cho tất cả các cạnh từ backend
+  geometryData.edges.forEach((edge, idx) => {
+    const [p1, p2, opts] = edge;
+    const key = [p1, p2].sort().join("-");
+    edgeMap[key] = {
+      index: idx,
+      p1,
+      p2,
+      hidden: opts?.hidden === true,
+      faces: []
+    };
+  });
+
+  // Tìm các mặt chứa cạnh này
+  precomputedFaces.forEach((face, faceIdx) => {
+    const len = face.vertices.length;
+    for (let i = 0; i < len; i++) {
+      const p1 = face.vertices[i];
+      const p2 = face.vertices[(i + 1) % len];
+      const key = [p1, p2].sort().join("-");
+      if (edgeMap[key]) {
+        edgeMap[key].faces.push(faceIdx);
+      }
+    }
+  });
+
+  return Object.values(edgeMap);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UPDATE: Cập nhật nét đứt/nét liền thời gian thực dựa trên góc nhìn camera
+// ─────────────────────────────────────────────────────────────────────────────
+export function updateDynamicEdges(customGroup, camera, geometryData, faces, edgeMap, scaleFactor = 1) {
+  const edgesGroup = customGroup.getObjectByName("edges");
+  if (!edgesGroup) return;
+
+  const solidLine = edgesGroup.getObjectByName("solid");
+  const dashedLine = edgesGroup.getObjectByName("dashed");
+  if (!solidLine || !dashedLine) return;
+
+  // Cập nhật ma trận thế giới của group để đảm bảo tính toán toạ độ mới nhất trong frame này
+  customGroup.updateMatrixWorld(true);
+
+  // Tính ma trận Model-View để chuyển từ toạ độ Local của hình học sang toạ độ Camera
+  const modelViewMatrix = new THREE.Matrix4().multiplyMatrices(camera.matrixWorldInverse, customGroup.matrixWorld);
+
+  // 1. Xác định mặt nào đang hướng về camera (Visible)
+  const faceVisible = faces.map(face => {
+    // Chuyển tâm mặt và pháp tuyến sang hệ toạ độ Camera
+    const centerCam = face.center.clone().applyMatrix4(modelViewMatrix);
+    const normalCam = face.normal.clone().transformDirection(modelViewMatrix);
+    
+    // Vì camera nằm ở (0,0,0) trong toạ độ Camera, vector từ camera đến mặt chính là centerCam.
+    // Nếu góc giữa pháp tuyến hướng ra ngoài và hướng nhìn là nhọn (dot product < 0), mặt đó đối diện camera (nhìn thấy).
+    return normalCam.dot(centerCam) < 0;
+  });
+
+  const solidPositions = [];
+  const dashedPositions = [];
+
+  const verts = normalizeVertices(geometryData.vertices);
+
+  // 2. Phân loại các cạnh thành nét liền hoặc nét đứt
+  for (const edge of edgeMap) {
+    const v1 = verts[edge.p1];
+    const v2 = verts[edge.p2];
+    if (!v1 || !v2) continue;
+
+    // Cạnh bị khuất (dashed) nếu:
+    // - Nó được đánh dấu ẩn tĩnh từ backend (ví dụ đường cao nội bộ, đường phụ bên trong)
+    // - HOẶC tất cả các mặt phẳng kề cạnh này đều là mặt sau (back-facing) khuất camera.
+    let isHidden = false;
+    if (edge.faces.length > 0) {
+      // Nếu cạnh thuộc các mặt phẳng biên, trạng thái ẩn/hiện hoàn toàn quyết định bởi góc nhìn thực tế
+      isHidden = edge.faces.every(faceIdx => !faceVisible[faceIdx]);
+    } else {
+      // Nếu là cạnh phụ nội bộ không thuộc mặt phẳng biên nào (như đường cao SO), giữ nét đứt tĩnh từ backend
+      isHidden = edge.hidden;
+    }
+
+    const target = isHidden ? dashedPositions : solidPositions;
+    target.push(
+      v1[0] * scaleFactor, v1[1] * scaleFactor, v1[2] * scaleFactor,
+      v2[0] * scaleFactor, v2[1] * scaleFactor, v2[2] * scaleFactor
+    );
+  }
+
+  // 3. Cập nhật buffer geometry cho nét liền (solid)
+  if (solidPositions.length > 0) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(solidPositions, 3));
+    const oldGeo = solidLine.geometry;
+    solidLine.geometry = geo;
+    oldGeo.dispose();
+    solidLine.visible = true;
+  } else {
+    solidLine.visible = false;
+  }
+
+  // 4. Cập nhật buffer geometry cho nét đứt (dashed)
+  if (dashedPositions.length > 0) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(dashedPositions, 3));
+    const oldGeo = dashedLine.geometry;
+    dashedLine.geometry = geo;
+    oldGeo.dispose();
+    dashedLine.computeLineDistances();
+    dashedLine.visible = true;
+  } else {
+    dashedLine.visible = false;
+  }
+}
+
