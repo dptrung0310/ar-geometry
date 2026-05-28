@@ -62,8 +62,6 @@ export function buildEdgeLines(geometryData, scaleFactor = 1) {
   const solidPositions  = [];
   const dashedPositions = [];
 
-  const colorStr = geometryData.color || "#ffffff";
-
   for (const edge of geometryData.edges) {
     const [p1name, p2name, opts] = edge;
     const isHidden = opts?.hidden === true;
@@ -87,7 +85,7 @@ export function buildEdgeLines(geometryData, scaleFactor = 1) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(solidPositions, 3));
     const mat = new THREE.LineBasicMaterial({
-      color: colorStr,
+      color: "#1a1a1a",
       linewidth: 2,
       transparent: true,
       opacity: 0.95,
@@ -99,32 +97,17 @@ export function buildEdgeLines(geometryData, scaleFactor = 1) {
   if (dashedPositions.length) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(dashedPositions, 3));
-    // computeLineDistances() BẮT BUỘC để LineDashedMaterial hoạt động
-    geo.computeBoundingSphere();
-
-    // THREE.js yêu cầu lineDistances attribute cho dashed lines
-    const positions = geo.attributes.position.array;
-    const lineDistances = [];
-    let totalDist = 0;
-    for (let i = 0; i < positions.length; i += 6) {
-      lineDistances.push(totalDist);
-      const dx = positions[i+3] - positions[i];
-      const dy = positions[i+4] - positions[i+1];
-      const dz = positions[i+5] - positions[i+2];
-      totalDist += Math.sqrt(dx*dx + dy*dy + dz*dz);
-      lineDistances.push(totalDist);
-      totalDist = 0; // reset per segment (LineSegments không liên tục)
-    }
-    geo.setAttribute("lineDistance", new THREE.Float32BufferAttribute(lineDistances, 1));
-
+    
     const mat = new THREE.LineDashedMaterial({
-      color: colorStr,
-      dashSize: 0.08,
-      gapSize:  0.06,
+      color: "#1a1a1a",
+      dashSize: 0.1,
+      gapSize: 0.05,
       transparent: true,
-      opacity: 0.65,
+      opacity: 0.8,
     });
-    group.add(new THREE.LineSegments(geo, mat));
+    const line = new THREE.LineSegments(geo, mat);
+    line.computeLineDistances(); // BẮT BUỘC để LineDashedMaterial hoạt động
+    group.add(line);
   }
 
   return group;
@@ -133,10 +116,9 @@ export function buildEdgeLines(geometryData, scaleFactor = 1) {
 // ─────────────────────────────────────────────────────────────────────────────
 // buildFaceMesh: Tạo THREE.Mesh fill màu trong suốt từ danh sách faces
 // ─────────────────────────────────────────────────────────────────────────────
-export function buildFaceMesh(geometryData, opacity = 0.35, scaleFactor = 1) {
+export function buildFaceMesh(geometryData, opacity = 0.15, scaleFactor = 1) {
   const verts = normalizeVertices(geometryData.vertices);
   const positionsArr = [];
-  const normalsArr = [];
 
   for (const face of geometryData.faces) {
     const faceVerts = face.vertices.map((name) => verts[name]);
@@ -149,21 +131,12 @@ export function buildFaceMesh(geometryData, opacity = 0.35, scaleFactor = 1) {
       const b = new THREE.Vector3(...faceVerts[i1]);
       const c = new THREE.Vector3(...faceVerts[i2]);
 
-      const ab = b.clone().sub(a);
-      const ac = c.clone().sub(a);
-      const normal = ab.cross(ac).normalize();
-
-      // Render double-sided bằng cách thêm 2 lần ngược chiều
+      // Render double-sided
       for (const [va, vb, vc] of [[a, b, c], [a, c, b]]) {
         positionsArr.push(
           va.x * scaleFactor, va.y * scaleFactor, va.z * scaleFactor,
           vb.x * scaleFactor, vb.y * scaleFactor, vb.z * scaleFactor,
           vc.x * scaleFactor, vc.y * scaleFactor, vc.z * scaleFactor,
-        );
-        normalsArr.push(
-          normal.x, normal.y, normal.z,
-          normal.x, normal.y, normal.z,
-          normal.x, normal.y, normal.z,
         );
       }
     }
@@ -171,18 +144,12 @@ export function buildFaceMesh(geometryData, opacity = 0.35, scaleFactor = 1) {
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(positionsArr, 3));
-  geo.setAttribute("normal",   new THREE.Float32BufferAttribute(normalsArr,   3));
 
-  const colorHex = geometryData.color
-    ? parseInt(geometryData.color.replace("#", ""), 16)
-    : 0x00e5ff;
-
-  const mat = new THREE.MeshPhongMaterial({
-    color: colorHex,
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0x4ea8de,
     transparent: true,
-    opacity,
+    opacity: 0.15,
     side: THREE.DoubleSide,
-    shininess: 60,
     depthWrite: false,
   });
 
@@ -190,15 +157,13 @@ export function buildFaceMesh(geometryData, opacity = 0.35, scaleFactor = 1) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// buildVertexPoints: Chấm điểm tại mỗi đỉnh
-// ─────────────────────────────────────────────────────────────────────────────
 export function buildVertexPoints(geometryData, scaleFactor = 1) {
   const verts = normalizeVertices(geometryData.vertices);
   const positions = [];
   const colors = [];
 
-  const defaultColor   = new THREE.Color(geometryData.color || "#ffffff");
-  const highlightColor = new THREE.Color("#ff4444");
+  const defaultColor   = new THREE.Color("#1a1a1a");
+  const highlightColor = new THREE.Color("#ef4444");
 
   for (const [name, pos] of Object.entries(verts)) {
     positions.push(
@@ -216,7 +181,7 @@ export function buildVertexPoints(geometryData, scaleFactor = 1) {
   geo.setAttribute("color",    new THREE.Float32BufferAttribute(colors,    3));
 
   const mat = new THREE.PointsMaterial({
-    size: 0.1,
+    size: 0.08,
     vertexColors: true,
     sizeAttenuation: true,
   });
@@ -332,17 +297,20 @@ export function build3DSpriteLabels(geometryData, scaleFactor = 1) {
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, 128, 128);
 
-    if (isHighlighted) {
-      ctx.fillStyle = "rgba(255, 68, 68, 0.85)";
-      ctx.beginPath();
-      ctx.arc(64, 64, 35, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.fillStyle = "#ffffff";
-    } else {
-      ctx.fillStyle = "#00e5ff"; // neon cyan
-    }
+    // Draw solid circle background
+    ctx.fillStyle = isHighlighted ? "rgba(239, 68, 68, 0.95)" : "rgba(15, 23, 42, 0.95)";
+    ctx.beginPath();
+    ctx.arc(64, 64, 45, 0, 2 * Math.PI);
+    ctx.fill();
 
-    ctx.font = "bold 64px system-ui, -apple-system, sans-serif";
+    // Draw crisp white border for contrast
+    ctx.strokeStyle = isHighlighted ? "#fca5a5" : "rgba(255, 255, 255, 0.8)";
+    ctx.lineWidth = 6;
+    ctx.stroke();
+
+    // Draw text inside
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 52px system-ui, -apple-system, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(name, 64, 64);

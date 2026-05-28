@@ -202,74 +202,79 @@ export function ARControls({
 
       {/* ── SETTINGS ─────────────────────────────────────────────── */}
       <div className="section">
-        <div className="section-title">Tùy chỉnh</div>
-
-        <div className="control-group">
-          <div className="label-row">
-            <span>Kích thước</span>
-            <span className="value">{size.toFixed(2)}</span>
-          </div>
-          <input
-            type="range"
-            min="0.5"
-            max="3"
-            step="0.1"
-            value={size}
-            onChange={(e) => setSize(parseFloat(e.target.value))}
-            className="slider"
-          />
-        </div>
-
-        <div className="control-group">
-          <div className="label-row">
-            <span>Độ trong suốt</span>
-            <span className="value">{(opacity * 100).toFixed(0)}%</span>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={opacity}
-            onChange={(e) => setOpacity(parseFloat(e.target.value))}
-            className="slider"
-          />
-        </div>
-
-        <div className="toggle-buttons">
-          <button
-            className={`toggle-btn ${wireframe ? "active" : ""}`}
-            onClick={toggleWireframe}
-          >
-            Wireframe
-          </button>
-          <button
-            className={`toggle-btn ${autoRotate ? "active" : ""}`}
-            onClick={toggleAutoRotate}
-          >
-            Auto Rotate
-          </button>
-        </div>
-
-        {/* Toggle hiển thị geometry annotations — chỉ hiện trong custom mode */}
         {mode === "custom" && (
-          <div className="toggle-buttons" style={{ marginTop: 6 }}>
-            <button
-              className={`toggle-btn ${showEdgeLengths ? "active" : ""}`}
-              onClick={toggleEdgeLengths}
-              title="Hiện/ẩn độ dài các cạnh"
-            >
-              📏 Độ dài
-            </button>
-            <button
-              className={`toggle-btn ${showConstraints ? "active" : ""}`}
-              onClick={toggleConstraints}
-              title="Hiện/ẩn ký hiệu góc vuông, cạnh bằng"
-            >
-              ∟ Ký hiệu
-            </button>
-          </div>
+          <>
+            <div className="section-title">Hiển thị toán học</div>
+            <div className="toggle-buttons" style={{ marginBottom: 4 }}>
+              <button
+                className={`toggle-btn ${showEdgeLengths ? "active" : ""}`}
+                onClick={toggleEdgeLengths}
+                title="Hiện/ẩn độ dài các cạnh"
+              >
+                📏 Độ dài cạnh
+              </button>
+              <button
+                className={`toggle-btn ${showConstraints ? "active" : ""}`}
+                onClick={toggleConstraints}
+                title="Hiện/ẩn ký hiệu góc vuông, cạnh bằng"
+              >
+                ∟ Ký hiệu
+              </button>
+            </div>
+          </>
         )}
+
+        <details className="advanced-settings">
+          <summary className="advanced-summary">Tùy chỉnh hiển thị</summary>
+          <div className="advanced-content" style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+            <div className="control-group">
+              <div className="label-row">
+                <span>Kích thước</span>
+                <span className="value">{size.toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min="0.5"
+                max="3"
+                step="0.1"
+                value={size}
+                onChange={(e) => setSize(parseFloat(e.target.value))}
+                className="slider"
+              />
+            </div>
+
+            <div className="control-group">
+              <div className="label-row">
+                <span>Độ trong suốt</span>
+                <span className="value">{(opacity * 100).toFixed(0)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={opacity}
+                onChange={(e) => setOpacity(parseFloat(e.target.value))}
+                className="slider"
+              />
+            </div>
+
+            <div className="toggle-buttons">
+              <button
+                className={`toggle-btn ${wireframe ? "active" : ""}`}
+                onClick={toggleWireframe}
+              >
+                Wireframe
+              </button>
+              <button
+                className={`toggle-btn ${autoRotate ? "active" : ""}`}
+                onClick={toggleAutoRotate}
+              >
+                Auto Rotate
+              </button>
+            </div>
+          </div>
+        </details>
       </div>
 
       <style>{`
@@ -290,16 +295,17 @@ export function ARControls({
           text-transform: uppercase;
           letter-spacing: 0.8px;
           color: var(--text3);
-          font-family: 'Space Mono', monospace;
+          font-family: 'Inter', sans-serif;
+          font-weight: 600;
         }
 
         /* ── CAMERA BTN ─────────────────── */
         .camera-btn {
           width: 100%;
-          padding: 10px 12px;
+          padding: 8px 12px;
           background: var(--bg3);
           border: 1px solid var(--border);
-          border-radius: 10px;
+          border-radius: 8px;
           color: var(--text);
           font-size: 12px;
           font-weight: 500;
@@ -311,16 +317,16 @@ export function ARControls({
           transition: all .2s ease;
         }
 
-        .camera-btn:hover { background: rgba(0,229,255,.05); border-color: rgba(0,229,255,.35); }
-        .camera-btn.active { background: rgba(16,255,160,.1); color: #10ffa0; border-color: rgba(16,255,160,.4); }
+        .camera-btn:hover { background: rgba(59, 130, 246, 0.05); border-color: rgba(59, 130, 246, 0.25); }
+        .camera-btn.active { background: rgba(16, 185, 129, 0.1); color: var(--green); border-color: rgba(16, 185, 129, 0.3); }
 
         /* ── ERROR ──────────────────────── */
         .error-message {
           padding: 8px 10px;
           border-radius: 8px;
-          background: rgba(255,0,0,.08);
-          border: 1px solid rgba(255,0,0,.2);
-          color: #ff8a8a;
+          background: rgba(239, 68, 68, 0.08);
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          color: #fca5a5;
           font-size: 11px;
           line-height: 1.4;
         }
@@ -342,8 +348,8 @@ export function ARControls({
           background-position: right 10px center;
         }
 
-        .problem-select:focus { border-color: rgba(0,229,255,.4); }
-        .problem-select option { background: #1a1a2e; }
+        .problem-select:focus { border-color: rgba(59, 130, 246, 0.4); }
+        .problem-select option { background: var(--bg2); }
 
         /* ── DIVIDER ────────────────────── */
         .divider {
@@ -364,10 +370,10 @@ export function ARControls({
         /* ── UPLOAD BTN ─────────────────── */
         .upload-btn {
           width: 100%;
-          padding: 10px 12px;
+          padding: 8px 12px;
           background: var(--bg3);
           border: 1px dashed var(--border);
-          border-radius: 10px;
+          border-radius: 8px;
           color: var(--text2);
           cursor: pointer;
           display: flex;
@@ -377,8 +383,8 @@ export function ARControls({
           transition: all .2s ease;
         }
 
-        .upload-btn:hover { border-color: rgba(0,229,255,.3); background: rgba(0,229,255,.04); }
-        .upload-sub { font-size: 9px; color: var(--text3); font-family: 'Space Mono', monospace; }
+        .upload-btn:hover { border-color: rgba(59, 130, 246, 0.25); background: rgba(59, 130, 246, 0.04); }
+        .upload-sub { font-size: 9px; color: var(--text3); font-family: 'Fira Code', monospace; }
 
         /* ── LOADING ────────────────────── */
         .loading-bar {
@@ -387,13 +393,13 @@ export function ARControls({
           gap: 4px;
           font-size: 10px;
           color: var(--text3);
-          font-family: 'Space Mono', monospace;
+          font-family: 'Fira Code', monospace;
         }
 
         .loading-inner {
-          height: 3px;
+          height: 2px;
           background: linear-gradient(90deg, transparent, var(--cyan), transparent);
-          border-radius: 2px;
+          border-radius: 1px;
           animation: shimmer 1.2s infinite;
           background-size: 200% 100%;
         }
@@ -408,8 +414,8 @@ export function ARControls({
           font-size: 11px;
           color: var(--text2);
           padding: 8px 10px;
-          background: rgba(16,255,160,.06);
-          border: 1px solid rgba(16,255,160,.2);
+          background: rgba(16, 185, 129, 0.05);
+          border: 1px solid rgba(16, 185, 129, 0.15);
           border-radius: 8px;
           line-height: 1.4;
         }
@@ -425,15 +431,15 @@ export function ARControls({
           color: var(--text2);
         }
 
-        .value { color: var(--cyan); font-family: 'Space Mono', monospace; font-size: 11px; }
+        .value { color: var(--cyan); font-family: 'Fira Code', monospace; font-size: 11px; }
         .slider { width: 100%; accent-color: var(--cyan); cursor: pointer; }
 
         .toggle-buttons { display: flex; gap: 8px; }
 
         .toggle-btn {
           flex: 1;
-          padding: 8px;
-          border-radius: 8px;
+          padding: 6px;
+          border-radius: 6px;
           border: 1px solid var(--border);
           background: var(--bg3);
           color: var(--text2);
@@ -442,8 +448,43 @@ export function ARControls({
           transition: all .2s ease;
         }
 
-        .toggle-btn:hover { background: rgba(0,229,255,.05); border-color: rgba(0,229,255,.25); }
-        .toggle-btn.active { background: rgba(0,229,255,.12); color: var(--cyan); border-color: rgba(0,229,255,.4); }
+        .toggle-btn:hover { background: rgba(59, 130, 246, 0.05); border-color: rgba(59, 130, 246, 0.2); }
+        .toggle-btn.active { background: rgba(59, 130, 246, 0.1); color: var(--cyan); border-color: rgba(59, 130, 246, 0.3); }
+
+        .advanced-settings {
+          margin-top: 10px;
+          border-top: 1px solid var(--border);
+          padding-top: 10px;
+        }
+
+        .advanced-summary {
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--text2);
+          cursor: pointer;
+          user-select: none;
+          outline: none;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          list-style: none;
+        }
+
+        .advanced-summary::-webkit-details-marker {
+          display: none;
+        }
+
+        .advanced-summary::after {
+          content: '▼';
+          font-size: 8px;
+          color: var(--text3);
+          transition: transform 0.2s ease;
+          transform: rotate(-90deg);
+        }
+
+        details[open] .advanced-summary::after {
+          transform: rotate(0deg);
+        }
       `}</style>
     </div>
   );

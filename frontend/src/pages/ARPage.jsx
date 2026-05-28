@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import * as THREE from "three";
 
-import SectionHeader from "../components/ui/SectionHeader";
+import Navbar from "../components/layout/Navbar";
 import { ARControls } from "../components/ar/ARControls";
 import MathRenderer from "../components/ui/MathRenderer";
 
@@ -9,58 +9,84 @@ import useViewerStore from "../store/useViewerStore";
 import { useAR } from "../hooks/useAR";
 import { computeLabelPositions } from "../utils/buildCustomGeometry";
 
-function TerminalLoader() {
-  const [logs, setLogs] = useState([]);
+function AcademicStepperLoader() {
+  const steps = [
+    { id: 1, name: "Trích xuất đề bài (OCR)", desc: "Nhận diện chữ viết và ký hiệu toán học" },
+    { id: 2, name: "Phân tích ràng buộc hình học", desc: "AI xác định cấu trúc đa diện và giả thiết" },
+    { id: 3, name: "Giải hệ tọa độ 3D không gian", desc: "Engine tính toán các đỉnh phụ và mặt thiết diện" },
+    { id: 4, name: "Kết xuất sơ đồ hình học & Lời giải", desc: "Dựng mesh Three.js và biên dịch LaTeX" },
+  ];
+
+  const [activeStep, setActiveStep] = useState(0);
 
   useEffect(() => {
-    const messages = [
-      "[SYSTEM] Khởi động luồng xử lý hình học AR...",
-      "[OCR] Đang chạy OCR quét đề toán từ hình ảnh...",
-      "[LLM] Đang phân tích và trích xuất các ràng buộc...",
-      "[ENGINE] Đang khởi tạo bộ giải Geometry Engine...",
-      "[ENGINE] Đang tối ưu hóa hệ tọa độ 3D...",
-      "[LLM] Đang soạn thảo chứng minh toán học (LaTeX)...",
-      "[SYSTEM] Hoàn tất! Đang kết xuất hình học không gian..."
-    ];
-
-    setLogs([messages[0]]);
-    
     const timers = [];
-    for (let i = 1; i < messages.length; i++) {
+    for (let i = 1; i <= steps.length; i++) {
       const t = setTimeout(() => {
-        setLogs(prev => [...prev, messages[i]]);
-      }, i * 1100);
+        setActiveStep(i);
+      }, i * 1400);
       timers.push(t);
     }
-
-    return () => {
-      timers.forEach(t => clearTimeout(t));
-    };
+    return () => timers.forEach(t => clearTimeout(t));
   }, []);
 
   return (
-    <div style={styles.terminal}>
-      <div style={styles.terminalHeader}>
-        <div style={styles.terminalDotRed} />
-        <div style={styles.terminalDotYellow} />
-        <div style={styles.terminalDotGreen} />
-        <span style={styles.terminalTitle}>geometry_engine_terminal.sh</span>
+    <div style={styles.stepperContainer}>
+      <div style={styles.stepperHeader}>
+        <span style={styles.stepperHeaderTitle}>TIẾN TRÌNH PHÂN TÍCH</span>
+        <span style={styles.stepperHeaderProgress}>
+          {activeStep === steps.length ? "Hoàn tất" : `Đang chạy: ${activeStep + 1}/${steps.length}`}
+        </span>
       </div>
-      <div style={styles.terminalBody}>
-        {logs.map((log, idx) => {
-          let color = "var(--text2)";
-          if (log.includes("[SYSTEM]")) color = "#10ffa0";
-          else if (log.includes("[OCR]")) color = "#00e5ff";
-          else if (log.includes("[LLM]")) color = "#ffd700";
-          else if (log.includes("[ENGINE]")) color = "#ff79c6";
+      <div style={styles.stepperList}>
+        {steps.map((step, idx) => {
+          const isCompleted = activeStep > idx;
+          const isActive = activeStep === idx;
+          
+          let statusColor = "var(--text3)";
+          let iconContent = idx + 1;
+          let iconBg = "rgba(255, 255, 255, 0.02)";
+          let iconBorder = "1px solid var(--border)";
+          let nameColor = "var(--text3)";
+          let descColor = "var(--text3)";
+
+          if (isCompleted) {
+            statusColor = "var(--green)";
+            iconContent = "✓";
+            iconBg = "rgba(34, 197, 94, 0.1)";
+            iconBorder = "1px solid var(--green)";
+            nameColor = "var(--text)";
+            descColor = "var(--text2)";
+          } else if (isActive) {
+            statusColor = "var(--cyan)";
+            iconBg = "rgba(59, 130, 246, 0.1)";
+            iconBorder = "1px solid var(--cyan)";
+            nameColor = "var(--text)";
+            descColor = "var(--text2)";
+          }
 
           return (
-            <div key={idx} style={{ ...styles.terminalLine, color }}>
-              <span style={styles.terminalPrompt}>$</span> {log}
+            <div key={step.id} style={styles.stepperRow}>
+              <div
+                style={{
+                  ...styles.stepperIcon,
+                  background: iconBg,
+                  border: iconBorder,
+                  color: statusColor,
+                }}
+              >
+                {iconContent}
+              </div>
+              <div style={styles.stepperContent}>
+                <div style={{ ...styles.stepperName, color: nameColor }}>
+                  {step.name}
+                  {isActive && <span style={styles.stepperSpinner} />}
+                </div>
+                <div style={{ ...styles.stepperDesc, color: descColor }}>{step.desc}</div>
+              </div>
             </div>
           );
         })}
-        <div style={styles.terminalCursor} />
       </div>
     </div>
   );
@@ -178,67 +204,64 @@ export default function ARPage() {
   }, []);
 
   return (
-    <div style={styles.page}>
-      <SectionHeader
-        eyebrow="augmented reality"
-        title="Trình xem AR hình học không gian"
-        desc="Bật camera · Chọn bài toán · Điều khiển bằng cử chỉ tay"
-      />
+    <div style={styles.pageContainer}>
+      <Navbar cameraActive={cameraActive} xrSessionActive={xrSessionActive} />
 
-      <div style={styles.layout} className="ar-layout">
-        {/* ── CỬA SỔ LỜI GIẢI (BÊN TRÁI) ─────────────────────────── */}
-        <div style={styles.solutionCard}>
-          <div style={styles.solutionHeader}>
-            <span style={styles.solutionTitleIcon}>📝</span>
-            <span style={styles.solutionTitle}>Lời giải & Chứng minh</span>
+      <div style={styles.workspaceWrapper}>
+        <div style={styles.layout} className="ar-layout">
+          {/* ── CỬA SỔ LỜI GIẢI (BÊN TRÁI) ─────────────────────────── */}
+          <div style={styles.solutionCard}>
+            <div style={styles.solutionHeader}>
+              <span style={styles.solutionTitleIcon}>📝</span>
+              <span style={styles.solutionTitle}>Lời giải & Chứng minh</span>
+            </div>
+
+            <div style={styles.solutionBody}>
+              {isLoading ? (
+                <AcademicStepperLoader />
+              ) : apiError ? (
+                <div style={styles.solutionError}>
+                  <div style={styles.errorIcon}>⚠️</div>
+                  <div style={styles.errorTitle}>Lỗi xử lý hệ thống</div>
+                  <p style={styles.errorText}>{apiError}</p>
+                </div>
+              ) : mode === "custom" && geometryData ? (
+                <>
+                  {/* Đề bài OCR */}
+                  {geometryData.problem && (
+                    <div style={styles.problemBox}>
+                      <div style={styles.boxLabel}>VĂN BẢN ĐỀ BÀI (OCR)</div>
+                      <div style={styles.problemTextScanned}>{geometryData.problem}</div>
+                    </div>
+                  )}
+
+                  {/* Lời giải toán chi tiết */}
+                  {geometryData.solution ? (
+                    <div style={styles.solutionContentBox}>
+                      <div style={styles.boxLabel}>LỜI GIẢI CHI TIẾT TỪNG BƯỚC</div>
+                      <MathRenderer text={geometryData.solution} />
+                    </div>
+                  ) : (
+                    <div style={styles.noSolutionBox}>
+                      <span style={{ fontSize: "28px", marginBottom: "10px" }}>💡</span>
+                      <div style={{ fontWeight: 600 }}>Chưa có lời giải chi tiết.</div>
+                      <p style={{ fontSize: "12px", color: "var(--text3)", marginTop: "4px" }}>
+                        Hãy tải lên ảnh đề bài hình học của bạn để AI tự động trích xuất lời giải.
+                      </p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={styles.emptyStateBox}>
+                  <span style={{ fontSize: "36px", marginBottom: "12px" }}>📐</span>
+                  <div style={{ fontWeight: 600, color: "var(--text)" }}>Bản giải toán hình học không gian</div>
+                  <p style={{ fontSize: "13px", color: "var(--text3)", marginTop: "6px", maxWidth: "300px" }}>
+                    Hãy tải ảnh đề bài lên hoặc chọn bài toán để xem lời giải chi tiết và dựng mô hình 3D tương tác.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
-
-          <div style={styles.solutionBody}>
-            {isLoading ? (
-              <TerminalLoader />
-            ) : apiError ? (
-              <div style={styles.solutionError}>
-                <div style={styles.errorIcon}>⚠️</div>
-                <div style={styles.errorTitle}>Lỗi xử lý hệ thống</div>
-                <p style={styles.errorText}>{apiError}</p>
-              </div>
-            ) : mode === "custom" && geometryData ? (
-              <>
-                {/* Đề bài OCR */}
-                {geometryData.problem && (
-                  <div style={styles.problemBox}>
-                    <div style={styles.boxLabel}>VĂN BẢN ĐỀ BÀI (OCR)</div>
-                    <div style={styles.problemTextScanned}>{geometryData.problem}</div>
-                  </div>
-                )}
-
-                {/* Lời giải toán chi tiết */}
-                {geometryData.solution ? (
-                  <div style={styles.solutionContentBox}>
-                    <div style={styles.boxLabel}>LỜI GIẢI CHI TIẾT TỪNG BƯỚC</div>
-                    <MathRenderer text={geometryData.solution} />
-                  </div>
-                ) : (
-                  <div style={styles.noSolutionBox}>
-                    <span style={{ fontSize: "28px", marginBottom: "10px" }}>💡</span>
-                    <div style={{ fontWeight: 600 }}>Chưa có lời giải chi tiết.</div>
-                    <p style={{ fontSize: "12px", color: "var(--text3)", marginTop: "4px" }}>
-                      Hãy tải lên ảnh đề bài hình học của bạn để AI tự động trích xuất lời giải.
-                    </p>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div style={styles.emptyStateBox}>
-                <span style={{ fontSize: "36px", marginBottom: "12px" }}>📐</span>
-                <div style={{ fontWeight: 600, color: "var(--text)" }}>Bản giải toán hình học không gian</div>
-                <p style={{ fontSize: "13px", color: "var(--text3)", marginTop: "6px", maxWidth: "300px" }}>
-                  Hãy tải ảnh đề bài lên hoặc chọn bài toán để xem lời giải chi tiết và dựng mô hình 3D tương tác.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* ── CỬA SỔ VẼ HÌNH 3D (Ở GIỮA/PHẢI) ────────────────────── */}
         <div style={styles.viewerCard}>
@@ -260,10 +283,7 @@ export default function ARPage() {
               <div
                 style={{
                   ...styles.statusDot,
-                  background: cameraActive ? "#10ffa0" : "#666",
-                  boxShadow: cameraActive
-                    ? "0 0 8px #10ffa0"
-                    : "none",
+                  background: cameraActive ? "var(--green)" : "#666",
                 }}
               />
               <span style={styles.statusText}>
@@ -272,7 +292,7 @@ export default function ARPage() {
             </div>
           </div>
 
-          <div style={styles.canvasWrapper}>
+          <div style={{ ...styles.canvasWrapper, background: cameraActive ? "transparent" : "#f8fafc" }}>
             {/* CAMERA VIDEO */}
             <video
               ref={videoRef}
@@ -296,10 +316,10 @@ export default function ARPage() {
                     style={{
                       ...styles.vertexLabel,
                       background: lbl.isHighlighted
-                        ? "rgba(255,68,68,0.92)"
-                        : "rgba(0,229,255,0.88)",
-                      borderColor: lbl.isHighlighted ? "#ff4444" : "#00e5ff",
-                      color: "#000",
+                        ? "#EF4444"
+                        : "rgba(15, 23, 42, 0.95)",
+                      borderColor: lbl.isHighlighted ? "#FCA5A5" : "rgba(255, 255, 255, 0.8)",
+                      color: "#ffffff",
                     }}
                   >
                     {lbl.name}
@@ -319,16 +339,21 @@ export default function ARPage() {
               </div>
             )}
 
-            {/* ── Placeholder khi camera chưa bật ──────────────── */}
-            {!cameraActive && !xrSessionActive && (
+            {/* ── Floating Canvas interaction tip ── */}
+            {geometryData && !cameraActive && !xrSessionActive && (
+              <div style={styles.canvasTip}>
+                💡 Kéo chuột để xoay · Cuộn để thu phóng
+              </div>
+            )}
+
+            {/* ── Placeholder khi camera chưa bật & chưa load hình ──────────────── */}
+            {!cameraActive && !xrSessionActive && !geometryData && (
               <div style={styles.overlay}>
                 <div style={styles.overlayBox}>
-                  <div style={styles.overlayIcon}>👁️</div>
-                  <h3 style={styles.overlayTitle}>Interactive 3D Canvas</h3>
+                  <div style={styles.overlayIcon}>📐</div>
+                  <h3 style={styles.overlayTitle}>Không gian Hình học 3D</h3>
                   <p style={styles.overlayDesc}>
-                    {mode === "custom" && geometryData
-                      ? "Hình vẽ đã dựng. Bật camera để xem dưới dạng AR hoặc di chuột/cử chỉ bên trong khung này để tương tác."
-                      : "Hãy tải ảnh đề bài lên hoặc chọn bài toán mẫu để bắt đầu."}
+                    Hãy tải ảnh đề bài lên hoặc chọn bài toán mẫu để dựng mô hình 3D tương tác.
                   </p>
                 </div>
               </div>
@@ -440,10 +465,11 @@ export default function ARPage() {
                 title="2 tay Pinch"
                 desc="Phóng to / Thu nhỏ"
               />
-            </div>
-          </div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
 
       <style>{`
         @keyframes blink {
@@ -488,59 +514,73 @@ function MetaChip({ label, value, unit }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const styles = {
-  page: {
+  pageContainer: {
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    background: "var(--bg)",
+  },
+
+  workspaceWrapper: {
+    flex: 1,
+    width: "100%",
     maxWidth: "1800px",
     margin: "0 auto",
-    padding: "40px 24px 60px",
+    padding: "16px 20px 24px",
+    display: "flex",
+    flexDirection: "column",
   },
 
   layout: {
     display: "grid",
-    gridTemplateColumns: "1fr 2.2fr 240px",
-    gap: "20px",
+    gridTemplateColumns: "25fr 55fr 20fr",
+    gap: "16px",
     alignItems: "stretch",
+    flex: 1,
   },
 
   viewerCard: {
     background: "var(--card)",
     border: "1px solid var(--border)",
-    borderRadius: "18px",
+    borderRadius: "12px",
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",
     minHeight: "780px",
+    boxShadow: "none",
   },
 
   viewerHeader: {
-    padding: "18px 22px",
+    padding: "14px 20px",
     borderBottom: "1px solid var(--border)",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    background: "rgba(255, 255, 255, 0.01)",
   },
 
   shapeName: {
-    fontSize: "16px",
+    fontSize: "14px",
     fontWeight: 600,
     color: "var(--text)",
   },
 
   shapeInfo: {
     fontSize: "11px",
-    marginTop: "4px",
+    marginTop: "2px",
     color: "var(--text3)",
-    fontFamily: "'Space Mono', monospace",
+    fontFamily: "'Fira Code', monospace",
   },
 
   statusWrap: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    gap: "6px",
   },
 
   statusDot: {
-    width: "10px",
-    height: "10px",
+    width: "8px",
+    height: "8px",
     borderRadius: "50%",
     transition: "background .3s ease",
   },
@@ -548,31 +588,31 @@ const styles = {
   statusText: {
     fontSize: "11px",
     color: "var(--text3)",
-    fontFamily: "'Space Mono', monospace",
+    fontFamily: "'Inter', sans-serif",
+    fontWeight: 500,
   },
 
   problemBanner: {
     display: "flex",
     gap: "10px",
     alignItems: "flex-start",
-    padding: "12px 20px",
+    padding: "10px 16px",
     borderBottom: "1px solid var(--border)",
-    background: "rgba(0,229,255,0.04)",
+    background: "rgba(59, 130, 246, 0.05)",
   },
 
-  problemIcon: { fontSize: "16px", flexShrink: 0 },
+  problemIcon: { fontSize: "14px", flexShrink: 0 },
 
   problemText: {
     fontSize: "13px",
     color: "var(--text2)",
-    lineHeight: 1.6,
+    lineHeight: 1.5,
   },
 
   canvasWrapper: {
     position: "relative",
     flex: 1,
     overflow: "hidden",
-    background: "#050505",
   },
 
   video: {
@@ -593,7 +633,6 @@ const styles = {
     background: "transparent",
   },
 
-  // Label container: absolute, full-size, không block mouse events
   labelContainer: {
     position: "absolute",
     inset: 0,
@@ -602,37 +641,48 @@ const styles = {
     overflow: "hidden",
   },
 
-  // Vertex label: ô tên đỉnh (A, B, S...)
   vertexLabel: {
     position: "absolute",
-    transform: "translate(-50%, -130%)", // Nổi lên trên điểm
-    padding: "3px 9px",
-    borderRadius: "7px",
-    border: "1.5px solid",
-    fontSize: "13px",
+    transform: "translate(-50%, -130%)",
+    padding: "4px 8px",
+    borderRadius: "4px",
+    border: "1.5px solid rgba(255, 255, 255, 0.8)",
+    fontSize: "12px",
     fontWeight: 700,
-    fontFamily: "'Space Mono', monospace",
+    fontFamily: "'Fira Code', monospace",
     whiteSpace: "nowrap",
     pointerEvents: "none",
-    letterSpacing: "0.5px",
-    // boxShadow để nổi bật trên background tối
-    boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
+    letterSpacing: "-0.2px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.3)",
   },
 
-  // Edge label: độ dài cạnh ở giữa cạnh
   edgeLabel: {
     position: "absolute",
     transform: "translate(-50%, -50%)",
-    padding: "2px 7px",
-    borderRadius: "5px",
-    background: "rgba(0,0,0,0.72)",
-    border: "1px solid rgba(255,255,255,0.18)",
-    fontSize: "11px",
-    fontFamily: "'Space Mono', monospace",
-    color: "rgba(255,255,200,0.9)",
+    padding: "3px 6px",
+    borderRadius: "4px",
+    background: "rgba(15, 23, 42, 0.95)",
+    border: "1.5px solid rgba(255, 255, 255, 0.15)",
+    fontSize: "10px",
+    fontFamily: "'Fira Code', monospace",
+    color: "#E2E8F0",
     whiteSpace: "nowrap",
     pointerEvents: "none",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+  },
+
+  canvasTip: {
+    position: "absolute",
+    bottom: "12px",
+    left: "12px",
+    zIndex: 4,
+    background: "rgba(15, 23, 42, 0.8)",
+    border: "1px solid var(--border)",
+    borderRadius: "6px",
+    padding: "6px 12px",
+    fontSize: "11px",
+    color: "var(--text2)",
+    pointerEvents: "none",
   },
 
   overlay: {
@@ -642,74 +692,78 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    backdropFilter: "blur(8px)",
-    background: "rgba(0,0,0,.45)",
+    background: "var(--bg)",
   },
 
   overlayBox: {
     textAlign: "center",
-    padding: "32px",
+    padding: "24px",
   },
 
-  overlayIcon: { fontSize: "52px", marginBottom: "18px" },
+  overlayIcon: { fontSize: "36px", marginBottom: "12px" },
 
   overlayTitle: {
-    fontSize: "30px",
+    fontSize: "16px",
+    fontWeight: 600,
     color: "var(--text)",
-    marginBottom: "12px",
+    marginBottom: "8px",
+    letterSpacing: "-0.3px",
   },
 
   overlayDesc: {
-    color: "var(--text2)",
-    fontSize: "15px",
-    lineHeight: 1.7,
-    maxWidth: "420px",
+    color: "var(--text3)",
+    fontSize: "12px",
+    lineHeight: 1.6,
+    maxWidth: "320px",
+    margin: "0 auto",
   },
 
   metaBar: {
     display: "flex",
     flexWrap: "wrap",
-    gap: "10px",
-    padding: "14px 20px",
+    gap: "8px",
+    padding: "12px 18px",
     borderTop: "1px solid var(--border)",
-    background: "rgba(0,229,255,0.02)",
+    background: "rgba(255,255,255,0.01)",
   },
 
   metaChip: {
     display: "flex",
-    flexDirection: "column",
-    gap: "2px",
-    background: "var(--bg3)",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: "6px",
+    background: "var(--bg)",
     border: "1px solid var(--border)",
-    borderRadius: "10px",
-    padding: "8px 14px",
-    minWidth: "90px",
+    borderRadius: "6px",
+    padding: "6px 12px",
   },
 
   metaLabel: {
     fontSize: "10px",
     color: "var(--text3)",
-    fontFamily: "'Space Mono', monospace",
+    fontFamily: "'Inter', sans-serif",
     textTransform: "uppercase",
+    fontWeight: 500,
     letterSpacing: "0.5px",
   },
 
   metaValue: {
-    fontSize: "13px",
+    fontSize: "12px",
     fontWeight: 600,
     color: "var(--cyan)",
-    fontFamily: "'Space Mono', monospace",
+    fontFamily: "'Fira Code', monospace",
   },
 
   metaUnit: {
     fontSize: "10px",
     color: "var(--text3)",
+    marginLeft: "2px",
   },
 
   controlsCol: {
     display: "flex",
     flexDirection: "column",
-    gap: "12px",
+    gap: "16px",
   },
 
   controlsCard: {
@@ -717,23 +771,24 @@ const styles = {
     border: "1px solid var(--border)",
     borderRadius: "12px",
     overflow: "hidden",
-    padding: "14px",
+    padding: "16px",
   },
 
   helpCard: {
     background: "var(--card)",
     border: "1px solid var(--border)",
     borderRadius: "12px",
-    padding: "14px",
+    padding: "16px",
   },
 
   panelTitle: {
     fontSize: "10px",
+    fontWeight: 600,
     color: "var(--text3)",
     textTransform: "uppercase",
     letterSpacing: "0.8px",
-    marginBottom: "10px",
-    fontFamily: "'Space Mono', monospace",
+    marginBottom: "12px",
+    fontFamily: "'Inter', sans-serif",
   },
 
   gestureList: {
@@ -744,36 +799,36 @@ const styles = {
 
   gestureRow: {
     display: "flex",
-    gap: "8px",
+    gap: "10px",
     alignItems: "center",
-    background: "var(--bg3)",
+    background: "rgba(255,255,255,0.01)",
     border: "1px solid var(--border)",
     borderRadius: "8px",
-    padding: "8px",
+    padding: "10px 12px",
   },
 
   gestureEmoji: {
-    fontSize: "18px",
-    width: "30px",
+    fontSize: "16px",
+    width: "24px",
     textAlign: "center",
   },
 
   gestureTitle: {
     color: "var(--text)",
     fontSize: "12px",
-    fontWeight: 500,
+    fontWeight: 600,
   },
 
   gestureDesc: {
-    color: "var(--text3)",
+    color: "var(--text2)",
     fontSize: "11px",
-    marginTop: "1px",
+    marginTop: "2px",
   },
 
   solutionCard: {
     background: "var(--card)",
     border: "1px solid var(--border)",
-    borderRadius: "18px",
+    borderRadius: "12px",
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",
@@ -781,61 +836,61 @@ const styles = {
   },
 
   solutionHeader: {
-    padding: "18px 22px",
+    padding: "14px 20px",
     borderBottom: "1px solid var(--border)",
     display: "flex",
     alignItems: "center",
-    gap: "10px",
+    gap: "8px",
+    background: "rgba(255, 255, 255, 0.01)",
   },
 
   solutionTitleIcon: {
-    fontSize: "18px",
+    fontSize: "14px",
   },
 
   solutionTitle: {
-    fontSize: "15px",
+    fontSize: "14px",
     fontWeight: 600,
     color: "var(--text)",
   },
 
   solutionBody: {
-    padding: "20px",
+    padding: "16px 20px",
     flex: 1,
     overflowY: "auto",
     maxHeight: "710px",
     display: "flex",
     flexDirection: "column",
-    gap: "18px",
+    gap: "16px",
   },
 
   problemBox: {
     background: "rgba(255,255,255,0.02)",
     border: "1px solid var(--border)",
-    borderRadius: "12px",
-    padding: "14px 16px",
+    borderRadius: "8px",
+    padding: "12px 14px",
   },
 
   boxLabel: {
-    fontSize: "10px",
-    color: "var(--text3)",
-    fontFamily: "'Space Mono', monospace",
+    fontSize: "9px",
     fontWeight: 600,
+    color: "var(--text3)",
+    fontFamily: "'Inter', sans-serif",
     letterSpacing: "0.5px",
-    marginBottom: "8px",
+    marginBottom: "6px",
   },
 
   problemTextScanned: {
-    fontSize: "13.5px",
-    color: "var(--text2)",
-    lineHeight: "1.6",
-    fontStyle: "italic",
+    fontSize: "13px",
+    color: "var(--text)",
+    lineHeight: "1.5",
   },
 
   solutionContentBox: {
-    background: "rgba(0, 229, 255, 0.01)",
-    border: "1px solid rgba(0, 229, 255, 0.08)",
-    borderRadius: "12px",
-    padding: "16px 18px",
+    background: "rgba(255, 255, 255, 0.01)",
+    border: "1px solid var(--border)",
+    borderRadius: "8px",
+    padding: "12px 14px",
   },
 
   noSolutionBox: {
@@ -845,10 +900,10 @@ const styles = {
     justifyContent: "center",
     textAlign: "center",
     color: "var(--text2)",
-    padding: "40px 20px",
+    padding: "32px 16px",
     background: "rgba(255,255,255,0.01)",
     border: "1px dashed var(--border)",
-    borderRadius: "12px",
+    borderRadius: "8px",
     flex: 1,
   },
 
@@ -859,7 +914,7 @@ const styles = {
     justifyContent: "center",
     textAlign: "center",
     flex: 1,
-    padding: "40px 20px",
+    padding: "32px 16px",
   },
 
   solutionError: {
@@ -868,110 +923,117 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     textAlign: "center",
-    padding: "30px 20px",
-    border: "1px solid rgba(255,0,0,0.15)",
-    background: "rgba(255,0,0,0.02)",
-    borderRadius: "12px",
-    color: "#ff8a8a",
+    padding: "24px 16px",
+    border: "1px solid rgba(239, 68, 68, 0.15)",
+    background: "rgba(239, 68, 68, 0.03)",
+    borderRadius: "8px",
+    color: "#fca5a5",
     flex: 1,
   },
 
   errorIcon: {
-    fontSize: "32px",
-    marginBottom: "10px",
+    fontSize: "24px",
+    marginBottom: "8px",
   },
 
   errorTitle: {
     fontWeight: 600,
-    fontSize: "15px",
-    marginBottom: "6px",
+    fontSize: "14px",
+    marginBottom: "4px",
   },
 
   errorText: {
-    fontSize: "12.5px",
+    fontSize: "12px",
     opacity: 0.85,
     lineHeight: 1.5,
   },
 
-  terminal: {
-    background: "#0c0f1d",
-    border: "1px solid #1a223f",
+  stepperContainer: {
+    background: "rgba(255, 255, 255, 0.01)",
+    border: "1px solid var(--border)",
     borderRadius: "10px",
-    fontFamily: "'Space Mono', Consolas, monospace",
-    fontSize: "12px",
-    overflow: "hidden",
-    boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+    padding: "20px",
+    fontFamily: "'Inter', sans-serif",
     flex: 1,
     display: "flex",
     flexDirection: "column",
+    gap: "20px",
     minHeight: "360px",
   },
 
-  terminalHeader: {
-    background: "#14192b",
-    padding: "10px 14px",
-    borderBottom: "1px solid #1a223f",
+  stepperHeader: {
     display: "flex",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: "6px",
+    borderBottom: "1px solid var(--border)",
+    paddingBottom: "12px",
   },
 
-  terminalDotRed: {
-    width: "10px",
-    height: "10px",
-    borderRadius: "50%",
-    background: "#ff5f56",
+  stepperHeaderTitle: {
+    fontSize: "10px",
+    fontWeight: 700,
+    color: "var(--text3)",
+    letterSpacing: "1px",
   },
 
-  terminalDotYellow: {
-    width: "10px",
-    height: "10px",
-    borderRadius: "50%",
-    background: "#ffbd2e",
-  },
-
-  terminalDotGreen: {
-    width: "10px",
-    height: "10px",
-    borderRadius: "50%",
-    background: "#27c93f",
-  },
-
-  terminalTitle: {
-    color: "#8c9fc2",
+  stepperHeaderProgress: {
     fontSize: "11px",
-    marginLeft: "10px",
+    fontWeight: 600,
+    color: "var(--cyan)",
+    fontFamily: "'Fira Code', monospace",
   },
 
-  terminalBody: {
-    padding: "16px",
-    flex: 1,
-    overflowY: "auto",
+  stepperList: {
     display: "flex",
     flexDirection: "column",
+    gap: "18px",
+  },
+
+  stepperRow: {
+    display: "flex",
+    gap: "14px",
+    alignItems: "flex-start",
+  },
+
+  stepperIcon: {
+    width: "28px",
+    height: "28px",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "11px",
+    fontWeight: 700,
+    flexShrink: 0,
+    transition: "all 0.25s ease",
+  },
+
+  stepperContent: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+  },
+
+  stepperName: {
+    fontSize: "13px",
+    fontWeight: 600,
+    display: "flex",
+    alignItems: "center",
     gap: "8px",
-    background: "#0c0f1d",
   },
 
-  terminalLine: {
-    lineHeight: "1.5",
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-all",
+  stepperDesc: {
+    fontSize: "11px",
+    lineHeight: "1.4",
   },
 
-  terminalPrompt: {
-    color: "#50fa7b",
-    marginRight: "6px",
-    fontWeight: "bold",
-  },
-
-  terminalCursor: {
+  stepperSpinner: {
     display: "inline-block",
-    width: "8px",
-    height: "14px",
-    background: "#50fa7b",
-    animation: "blink 1s step-end infinite",
-    marginTop: "4px",
+    width: "6px",
+    height: "6px",
+    borderRadius: "50%",
+    background: "var(--cyan)",
+    animation: "pulse 1s infinite",
   },
 
   xrHud: {
@@ -982,7 +1044,7 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
-    padding: "20px",
+    padding: "16px",
   },
 
   xrHudTop: {
@@ -994,72 +1056,67 @@ const styles = {
   },
 
   xrAnchorBtnActive: {
-    padding: "10px 18px",
-    borderRadius: "10px",
-    background: "rgba(16, 255, 160, 0.9)",
-    border: "1px solid rgba(255, 255, 255, 0.25)",
-    color: "#000",
-    fontSize: "14px",
+    padding: "8px 14px",
+    borderRadius: "8px",
+    background: "var(--green)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    color: "#fff",
+    fontSize: "12px",
     fontWeight: 600,
     cursor: "pointer",
     pointerEvents: "auto",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
-    backdropFilter: "blur(4px)",
-    transition: "all 0.2s",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+    transition: "opacity 0.2s",
   },
 
   xrAnchorBtnInactive: {
-    padding: "10px 18px",
-    borderRadius: "10px",
-    background: "rgba(255, 193, 7, 0.9)",
-    border: "1px solid rgba(255, 255, 255, 0.25)",
-    color: "#000",
-    fontSize: "14px",
+    padding: "8px 14px",
+    borderRadius: "8px",
+    background: "var(--orange)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    color: "#fff",
+    fontSize: "12px",
     fontWeight: 600,
     cursor: "pointer",
     pointerEvents: "auto",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
-    backdropFilter: "blur(4px)",
-    transition: "all 0.2s",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+    transition: "opacity 0.2s",
   },
 
   xrExitBtn: {
     alignSelf: "flex-end",
-    padding: "10px 18px",
-    borderRadius: "10px",
-    background: "rgba(220, 53, 69, 0.85)",
-    border: "1px solid rgba(255, 255, 255, 0.2)",
-    color: "#fff",
-    fontSize: "14px",
+    padding: "8px 14px",
+    borderRadius: "8px",
+    background: "var(--bg3)",
+    border: "1px solid var(--border2)",
+    color: "var(--text)",
+    fontSize: "12px",
     fontWeight: 600,
     cursor: "pointer",
     pointerEvents: "auto",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
-    backdropFilter: "blur(4px)",
-    transition: "background 0.2s",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+    transition: "opacity 0.2s",
   },
 
   xrInstructions: {
     alignSelf: "center",
-    background: "rgba(0, 0, 0, 0.75)",
-    border: "1px solid rgba(0, 229, 255, 0.25)",
-    borderRadius: "12px",
-    padding: "12px 16px",
-    color: "#fff",
-    fontSize: "12px",
-    lineHeight: "1.6",
-    maxWidth: "340px",
+    background: "rgba(15, 23, 42, 0.92)",
+    border: "1px solid var(--border)",
+    borderRadius: "8px",
+    padding: "10px 14px",
+    color: "var(--text2)",
+    fontSize: "11px",
+    lineHeight: "1.5",
+    maxWidth: "320px",
     pointerEvents: "auto",
-    boxShadow: "0 4px 15px rgba(0,0,0,0.6)",
-    backdropFilter: "blur(4px)",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
   },
 
   xrInstructionsTitle: {
-    fontWeight: 700,
-    color: "var(--cyan)",
+    fontWeight: 600,
+    color: "var(--text)",
     marginBottom: "4px",
-    textTransform: "uppercase",
-    fontSize: "10px",
-    letterSpacing: "0.5px",
+    fontSize: "11px",
+    letterSpacing: "0.2px",
   },
 };
