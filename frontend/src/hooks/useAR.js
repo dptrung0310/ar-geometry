@@ -91,6 +91,123 @@ export function useAR(
   // handDetected chỉ dùng để điều khiển auto-rotate UI, KHÔNG ảnh hưởng gesture logic
   const [handDetected, setHandDetected] = useState(false);
 
+  // ── WebXR Depth Occlusion Refs & State ────────────────────────────────────
+  const depthTextureRef   = useRef(new THREE.Texture());
+  const xrWebGLBindingRef = useRef(null);
+  const occlusionUniformsRef = useRef({
+    uDepthTexture:     { value: depthTextureRef.current },
+    uDepthMatrix:      { value: new THREE.Matrix4() },
+    uRawValueToMeters: { value: 0.0 },
+    uIsFloatFormat:    { value: 0.0 }, // 0.0 = luminance-alpha, 1.0 = float32
+    uDepthEnabled:     { value: 0.0 },
+  });
+
+  // Khởi tạo thuộc tính texture cho depth để tránh warning trong WebGL
+  useEffect(() => {
+    const tex = depthTextureRef.current;
+    tex.minFilter = THREE.NearestFilter;
+    tex.magFilter = THREE.NearestFilter;
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.generateMipmaps = false;
+  }, []);
+
+  // ── Hàm trang trí vật liệu cho Depth Occlusion ─────────────────────────────
+  const decorateMaterial = (material) => {
+    if (!material || material.hasDepthOcclusion) return;
+    material.hasDepthOcclusion = true;
+
+    material.defines = material.defines || {};
+    material.defines.USE_DEPTH_OCCLUSION = "";
+
+    material.onBeforeCompile = (shader) => {
+      // Đăng ký uniforms chia sẻ
+      shader.uniforms.uDepthTexture     = occlusionUniformsRef.current.uDepthTexture;
+      shader.uniforms.uDepthMatrix      = occlusionUniformsRef.current.uDepthMatrix;
+      shader.uniforms.uRawValueToMeters = occlusionUniformsRef.current.uRawValueToMeters;
+      shader.uniforms.uIsFloatFormat    = occlusionUniformsRef.current.uIsFloatFormat;
+      shader.uniforms.uDepthEnabled     = occlusionUniformsRef.current.uDepthEnabled;
+
+      // Vertex shader: truyền vDepthMeters và vScreenUV sang fragment shader
+      if (!shader.vertexShader.includes("varying float vDepthMeters;")) {
+        shader.vertexShader = `
+          #ifdef USE_DEPTH_OCCLUSION
+          varying float vDepthMeters;
+          varying vec2 vScreenUV;
+          #endif
+        ` + shader.vertexShader;
+      }
+      shader.vertexShader = shader.vertexShader.replace(
+        "#include <mvPosition_vertex>",
+        `#include <mvPosition_vertex>
+        #ifdef USE_DEPTH_OCCLUSION
+        vDepthMeters = -mvPosition.z;
+        vec4 clipPosition = projectionMatrix * mvPosition;
+        vScreenUV = clipPosition.xy / clipPosition.w * 0.5 + 0.5;
+        #endif`
+      );
+
+      // Fragment shader: tiêm code khai báo
+      shader.fragmentShader = `
+        #ifdef USE_DEPTH_OCCLUSION
+        uniform sampler2D uDepthTexture;
+        uniform mat4 uDepthMatrix;
+        uniform float uRawValueToMeters;
+        uniform float uIsFloatFormat;
+        uniform float uDepthEnabled;
+        varying float vDepthMeters;
+        varying vec2 vScreenUV;
+        #endif
+      ` + shader.fragmentShader;
+
+      // Fragment shader: tiêm code xử lý discard tại main()
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "void main() {",
+        `void main() {
+        #ifdef USE_DEPTH_OCCLUSION
+        if (uDepthEnabled > 0.5) {
+          vec2 normViewCoords = vScreenUV;
+          vec2 depthTexCoord = (uDepthMatrix * vec4(normViewCoords, 0.0, 1.0)).xy;
+          if (depthTexCoord.x >= 0.0 && depthTexCoord.x <= 1.0 && depthTexCoord.y >= 0.0 && depthTexCoord.y <= 1.0) {
+            vec4 depthSample = texture2D(uDepthTexture, depthTexCoord);
+            float realDepthMeters = 0.0;
+            if (uIsFloatFormat > 0.5) {
+              // Đối với định dạng float32, giá trị thô nằm trực tiếp ở kênh R
+              realDepthMeters = depthSample.r * uRawValueToMeters;
+            } else {
+              // Đối với định dạng luminance-alpha, giải nén 16-bit từ kênh R và A
+              vec2 packedDepth = depthSample.ra;
+              float rawDepth = dot(packedDepth, vec2(255.0, 256.0 * 255.0));
+              realDepthMeters = rawDepth * uRawValueToMeters;
+            }
+            
+            // Loại bỏ pixel nếu vật ảo xa hơn thực tế 3cm
+            if (vDepthMeters > realDepthMeters + 0.03) {
+              discard;
+            }
+          }
+        }
+        #endif`
+      );
+    };
+  };
+
+  const decorateAllMaterials = () => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    scene.traverse((child) => {
+      if (child.isMesh || child.isLine || child.isPoints || child.isSprite) {
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach((mat) => decorateMaterial(mat));
+          } else {
+            decorateMaterial(child.material);
+          }
+        }
+      }
+    });
+  };
+
   // ── Initialize Scene, Camera, Renderer ───────────────────────────────────
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -136,16 +253,24 @@ export function useAR(
     reticle.matrixAutoUpdate = false;
     scene.add(reticle);
     reticleRef.current = reticle;
+    decorateAllMaterials();
 
     const onSessionStart = () => {
       setXrSessionActive(true);
       renderer.setPixelRatio(1.0);
+      decorateAllMaterials();
     };
     const onSessionEnd = () => {
       setXrSessionActive(false);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
       xrHitTestSourceRef.current = null;
       xrRefSpaceRef.current = null;
+      xrWebGLBindingRef.current = null;
+      const properties = renderer.properties.get(depthTextureRef.current);
+      if (properties) {
+        properties.__webglTexture = undefined;
+      }
+      occlusionUniformsRef.current.uDepthEnabled.value = 0.0;
       if (reticleRef.current) reticleRef.current.visible = false;
     };
     renderer.xr.addEventListener("sessionstart", onSessionStart);
@@ -300,6 +425,8 @@ export function useAR(
     if (xrSessionActive) edges.visible = false;
     scene.add(edges);
     edgesRef.current = edges;
+
+    decorateAllMaterials();
   }, [geometryData, shape, size, opacity, wireframe, showConstraints, xrSessionActive]);
 
   // ── WebXR Select Listener ─────────────────────────────────────────────────
@@ -342,20 +469,26 @@ export function useAR(
     };
   }, [geometryData, shape]);
 
+  const xrSessionActiveRef = useRef(xrSessionActive);
+  useEffect(() => { xrSessionActiveRef.current = xrSessionActive; }, [xrSessionActive]);
+
+  const autoRotateRef = useRef(autoRotate);
+  useEffect(() => { autoRotateRef.current = autoRotate; }, [autoRotate]);
+
   // ── Animation Loop (60 FPS) ───────────────────────────────────────────────
   useEffect(() => {
     const renderer = rendererRef.current;
     if (!renderer) return;
 
-    const animate = () => {
+    const animate = (time, frameFromWebGL) => {
       const obj   = customGroupRef.current || meshRef.current;
       const edges = customGroupRef.current ? null : edgesRef.current;
 
       // WebXR Hit Test
-      if (xrSessionActive) {
-        const frame         = renderer.xr.getFrame();
+      if (xrSessionActiveRef.current) {
+        const frame         = frameFromWebGL || (renderer.xr && typeof renderer.xr.getFrame === "function" ? renderer.xr.getFrame() : null);
         const hitTestSource = xrHitTestSourceRef.current;
-        const refSpace      = renderer.xr.getReferenceSpace();
+        const refSpace      = (renderer.xr && typeof renderer.xr.getReferenceSpace === "function" ? renderer.xr.getReferenceSpace() : null) || xrRefSpaceRef.current;
         if (frame && hitTestSource && refSpace) {
           const hits = frame.getHitTestResults(hitTestSource);
           if (hits.length > 0) {
@@ -368,12 +501,113 @@ export function useAR(
             if (reticleRef.current) reticleRef.current.visible = false;
           }
         }
+
+        // ── WebXR Depth Occlusion ──
+        const session = frame ? frame.session : null;
+        if (frame && session && refSpace) {
+          // Kiểm tra xem thiết bị và trình duyệt có hỗ trợ depth sensing trong session không
+          if (!session.depthUsage || !session.depthDataFormat) {
+            const statusEl = document.getElementById("xr-depth-status");
+            if (statusEl) {
+              statusEl.innerText = "• Depth: Thiết bị không hỗ trợ cảm biến";
+            }
+            occlusionUniformsRef.current.uDepthEnabled.value = 0.0;
+          } else {
+            const pose = frame.getViewerPose(refSpace);
+            if (pose && pose.views && pose.views.length > 0) {
+              const view = pose.views[0];
+
+              if (!xrWebGLBindingRef.current && typeof window.XRWebGLBinding !== "undefined") {
+                try {
+                  const gl = renderer.getContext();
+                  xrWebGLBindingRef.current = new window.XRWebGLBinding(session, gl);
+                } catch (e) {
+                  console.error("Failed to create XRWebGLBinding:", e);
+                  const statusEl = document.getElementById("xr-depth-status");
+                  if (statusEl) {
+                    statusEl.innerText = `• Depth Lỗi: Không thể khởi tạo binding`;
+                  }
+                }
+              }
+
+              if (xrWebGLBindingRef.current) {
+                try {
+                  const depthInfo = xrWebGLBindingRef.current.getDepthInformation(view);
+                  if (depthInfo && depthInfo.texture) {
+                    // Link raw WebGLTexture to our Three.js texture properties
+                    const properties = renderer.properties.get(depthTextureRef.current);
+                    properties.__webglTexture = depthInfo.texture;
+
+                    // Update uniforms
+                    occlusionUniformsRef.current.uRawValueToMeters.value = depthInfo.rawValueToMeters;
+                    occlusionUniformsRef.current.uDepthMatrix.value.fromArray(depthInfo.normDepthBufferFromNormView.matrix);
+                    occlusionUniformsRef.current.uIsFloatFormat.value = (session.depthDataFormat === "float32") ? 1.0 : 0.0;
+                    occlusionUniformsRef.current.uDepthEnabled.value = 1.0;
+
+                    // Update trạng thái hiển thị
+                    const statusEl = document.getElementById("xr-depth-status");
+                    if (statusEl) {
+                      const fmt = session.depthDataFormat === "float32" ? "Float32" : "Luminance-Alpha";
+                      statusEl.innerText = `• Depth: Hoạt động (${fmt}, scale: ${depthInfo.rawValueToMeters.toFixed(4)})`;
+                    }
+
+                    // Debug log một lần khi độ sâu hoạt động
+                    if (!window.__depthSensingLogged) {
+                      window.__depthSensingLogged = true;
+                      console.log("WebXR Depth Sensing active! Format:", session.depthDataFormat, "Usage:", session.depthUsage, "Scale factor:", depthInfo.rawValueToMeters);
+                    }
+                  } else {
+                    const statusEl = document.getElementById("xr-depth-status");
+                    if (statusEl) {
+                      statusEl.innerText = "• Depth: Sensor đang tải dữ liệu...";
+                    }
+                    occlusionUniformsRef.current.uDepthEnabled.value = 0.0;
+                  }
+                } catch (err) {
+                  const statusEl = document.getElementById("xr-depth-status");
+                  if (statusEl) {
+                    if (err.message.includes("Depth sensing feature is not supported") ||
+                        err.message.includes("not supported by the session")) {
+                      statusEl.innerText = "• Depth: Thiết bị không hỗ trợ cảm biến độ sâu";
+                    } else {
+                      statusEl.innerText = `• Depth Lỗi: ${err.message}`;
+                    }
+                  }
+                  if (!window.__depthSensingErrorLogged) {
+                    window.__depthSensingErrorLogged = true;
+                    console.error("Failed to retrieve WebXR depth information:", err);
+                  }
+                  occlusionUniformsRef.current.uDepthEnabled.value = 0.0;
+                }
+              } else {
+                const statusEl = document.getElementById("xr-depth-status");
+                if (statusEl) {
+                  statusEl.innerText = "• Depth Lỗi: Thiếu XRWebGLBinding";
+                }
+                occlusionUniformsRef.current.uDepthEnabled.value = 0.0;
+              }
+            } else {
+              const statusEl = document.getElementById("xr-depth-status");
+              if (statusEl) {
+                statusEl.innerText = "• Depth: Không tìm thấy views";
+              }
+              occlusionUniformsRef.current.uDepthEnabled.value = 0.0;
+            }
+          }
+        } else {
+          const statusEl = document.getElementById("xr-depth-status");
+          if (statusEl) {
+            statusEl.innerText = `• Depth: Đang chờ frame hoạt động... (f:${!!frame}, s:${!!session}, r:${!!refSpace})`;
+          }
+          occlusionUniformsRef.current.uDepthEnabled.value = 0.0;
+        }
       } else {
         if (reticleRef.current) reticleRef.current.visible = false;
+        occlusionUniformsRef.current.uDepthEnabled.value = 0.0;
       }
 
       // Auto rotate khi không có tay
-      if (obj && autoRotate && !handActiveRef.current && !xrSessionActive) {
+      if (obj && autoRotateRef.current && !handActiveRef.current && !xrSessionActiveRef.current) {
         obj.rotation.x += 0.005;
         obj.rotation.y += 0.008;
         if (edges) { edges.rotation.x += 0.005; edges.rotation.y += 0.008; }
@@ -390,7 +624,7 @@ export function useAR(
       }
 
       // ── Cập nhật di chuyển bằng Velocity (60 FPS) ──
-      if (obj && !xrSessionActive) {
+      if (obj && !xrSessionActiveRef.current) {
         const dv = dragVelocityRef.current;
         if (Math.abs(dv.x) > 0.0001 || Math.abs(dv.y) > 0.0001) {
           obj.position.x += dv.x;
@@ -420,7 +654,7 @@ export function useAR(
 
     renderer.setAnimationLoop(animate);
     return () => { renderer.setAnimationLoop(null); };
-  }, [autoRotate, xrSessionActive]);
+  }, []);
 
   // ── Hand Tracking Callback ────────────────────────────────────────────────
   useHandTracking(videoRef, cameraActive && !xrSessionActive, (results) => {
@@ -610,7 +844,11 @@ export function useAR(
 
       const session = await navigator.xr.requestSession("immersive-ar", {
         requiredFeatures: ["hit-test"],
-        optionalFeatures: ["local", "local-floor", "dom-overlay"],
+        optionalFeatures: ["local", "local-floor", "dom-overlay", "depth-sensing"],
+        depthSensing: {
+          usagePreference: ["gpu-optimized", "cpu-optimized"],
+          dataFormatPreference: ["luminance-alpha", "float32"],
+        },
         domOverlay: { root: canvasRef.current.parentElement },
       });
 

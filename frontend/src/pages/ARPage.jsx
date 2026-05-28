@@ -374,6 +374,9 @@ export default function ARPage() {
                       <div>• Nhấn nút 🔒 ở trên để ghim cố định hình.</div>
                     </>
                   )}
+                  <div id="xr-depth-status" style={{ marginTop: "6px", color: "#ffd700", fontWeight: "bold" }}>
+                    • Depth: Đang kiểm tra cảm biến...
+                  </div>
                 </div>
               </div>
             )}
