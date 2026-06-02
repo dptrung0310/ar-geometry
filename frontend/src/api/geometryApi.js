@@ -1,6 +1,13 @@
 import MOCK_GEOMETRY_PROBLEMS from "../data/mockGeometryOutput";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const getApiBase = () => {
+  if (typeof window !== "undefined" && window.location) {
+    // Dynamically point to the same hostname on port 8000 to adapt to different network IPs automatically
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  return import.meta.env.VITE_API_URL || "http://localhost:8000";
+};
+const API_BASE = getApiBase();
 
 /**
  * Thuật toán giao điểm Tia - Tam giác (Möller–Trumbore)
